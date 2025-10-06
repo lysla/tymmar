@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.42",
+    "ai": "^5.0.60",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
