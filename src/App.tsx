@@ -3,7 +3,7 @@ import "./App.css";
 function App() {
     return (
         <>
-            <div>tymmar updating, understanding checks...</div>
+            <div>tymmar updating, understanding checks... even more</div>
         </>
     );
 }
