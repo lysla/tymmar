@@ -1,76 +1,46 @@
-import { useState, useEffect } from "react";
-import { askAI } from "./api";
-import "./App.css";
+// src/App.tsx (or a dedicated Admin page)
+import { useState } from "react";
+import { SignedOut, SignInButton, SignedIn, UserButton } from "@clerk/clerk-react";
 
 export default function App() {
-    const [text, setText] = useState<string>("Loading...");
-
-    useEffect(() => {
-        async function fetchAI() {
-            try {
-                const result = await askAI("Hello world");
-                setText(result);
-            } catch (err) {
-                setText("Error contacting AI 😢");
-                console.error(err);
-            }
-        }
-        fetchAI();
-    }, []);
-
-    const [name, setName] = useState("");
-    const [surname, setSurname] = useState("");
-    const [status, setStatus] = useState<null | string>(null);
-    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState("");
+    const [firstName, setFirst] = useState("");
+    const [lastName, setLast] = useState("");
+    const [password, setPwd] = useState("");
+    const [msg, setMsg] = useState<string | null>(null);
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
-        setStatus(null);
-        if (!name.trim() || !surname.trim()) {
-            setStatus("Please enter both name and surname.");
-            return;
-        }
-        setLoading(true);
-        try {
-            const r = await fetch("/api/employees", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: name.trim(), surname: surname.trim() }),
-            });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data?.error || "Request failed");
-            setStatus(`Employee created: #${data?.id} ${data?.name} ${data?.surname}`);
-            setName("");
-            setSurname("");
-        } catch (err: unknown) {
-            setStatus(`Error: ${err instanceof Error ? err.message : "unknown"}`);
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
+        setMsg(null);
+        const r = await fetch("/api/admin-create-user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }, // temp guard
+            body: JSON.stringify({ email, firstName, lastName, password: password || undefined }),
+        });
+        const data = await r.json();
+        setMsg(r.ok ? `Created user ${data.email}` : `Error: ${data.error || r.statusText}`);
     }
 
     return (
-        <main style={{ padding: 24, fontFamily: "system-ui" }}>
-            <h1>tymmar</h1>
-            <br />
-            {text}
-            <br />
-            <h2>Add employee</h2>
-            <p>Data is stored in Neon database using Drizzle ORM.</p>
-            <br />
-            <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, maxWidth: 420 }}>
-                <label>
-                    Name
-                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ada" disabled={loading} />
-                </label>
-                <label>
-                    Surname
-                    <input value={surname} onChange={(e) => setSurname(e.target.value)} placeholder="Lovelace" disabled={loading} />
-                </label>
-                <button disabled={loading}>{loading ? "Saving..." : "Add employee"}</button>
+        <div>
+            <header style={{ display: "flex", justifyContent: "space-between", padding: 12 }}>
+                <h1>tymmar</h1>
+                <SignedIn>
+                    <UserButton />
+                </SignedIn>
+                <SignedOut>
+                    <SignInButton />
+                </SignedOut>
+            </header>
+
+            <form onSubmit={onSubmit} style={{ display: "grid", gap: 8, maxWidth: 360, padding: 12 }}>
+                <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <input placeholder="first name" value={firstName} onChange={(e) => setFirst(e.target.value)} />
+                <input placeholder="last name" value={lastName} onChange={(e) => setLast(e.target.value)} />
+                <input placeholder="(optional) password" value={password} onChange={(e) => setPwd(e.target.value)} />
+                <button>Create user</button>
             </form>
-            {status && <p style={{ marginTop: 12 }}>{status}</p>}
-        </main>
+            {msg && <p>{msg}</p>}
+        </div>
     );
 }
