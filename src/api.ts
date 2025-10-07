@@ -1,5 +1,4 @@
 export async function askAI(prompt: string) {
-    //return prompt;
     const r = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
