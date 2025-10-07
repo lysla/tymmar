@@ -2,7 +2,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 
-export const config = { runtime: "edge" }; // run at the edge (fast)
+export const config = { runtime: "nodejs" };
 
 export default async function handler(req: Request) {
     const { prompt } = (await req.json()) as { prompt?: string };
