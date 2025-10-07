@@ -1,14 +1,14 @@
 export const config = { runtime: "nodejs" };
 
-import { db } from "./db/index.js";
-import { employees } from "./db/schema.js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { db } from "./db";
+import { employees } from "./db/schema";
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
-        // Vercel parses JSON when Content-Type: application/json
-        const { name, surname } = req.body || {};
+        const { name, surname } = (req.body ?? {}) as { name?: string; surname?: string };
 
         if (!name?.trim() || !surname?.trim()) {
             return res.status(400).json({ error: "Name and surname are required." });
