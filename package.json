@@ -7,7 +7,9 @@
         "dev": "vite",
         "build": "tsc -b && vite build",
         "lint": "eslint .",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "vercel": "vercel dev",
+        "trace-vercel": "node --trace-deprecation ./node_modules/.bin/vercel dev"
     },
     "dependencies": {
         "@ai-sdk/openai": "^2.0.42",
@@ -29,7 +31,16 @@
         "nx": "21.6.3",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.45.0",
+        "vercel": "^48.2.2",
         "vite": "^7.1.7"
+    },
+    "overrides": {
+        "@vercel/node": {
+            "typescript": "^5.9.3"
+        },
+        "ts-node": {
+            "typescript": "^5.9.3"
+        }
     },
     "nx": {}
 }
