@@ -35,16 +35,7 @@
         "tsx": "^4.20.6",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.45.0",
-        "vercel": "^48.2.2",
         "vite": "^7.1.7"
-    },
-    "overrides": {
-        "@vercel/node": {
-            "typescript": "^5.9.3"
-        },
-        "ts-node": {
-            "typescript": "^5.9.3"
-        }
     },
     "nx": {}
 }
