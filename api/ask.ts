@@ -5,7 +5,7 @@ import { generateText } from "ai";
 export const config = { runtime: "edge" }; // run at the edge (fast)
 
 export default async function handler(req: Request) {
-    const { prompt } = await req.json();
+    const { prompt } = (await req.json()) as { prompt?: string };
     const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
     const { text } = await generateText({
