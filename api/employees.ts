@@ -1,24 +1,34 @@
 export const config = { runtime: "nodejs" };
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { db } from "./db";
-import { employees } from "./db/schema";
+import { employees } from "../db/schema";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: Request) {
     try {
-        if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+        if (req.method !== "POST") {
+            return new Response("Method Not Allowed", { status: 405 });
+        }
 
-        const { name, surname } = (req.body ?? {}) as { name?: string; surname?: string };
+        const { name, surname } = ((await req.json?.()) ?? {}) as { name?: string; surname?: string };
 
         if (!name?.trim() || !surname?.trim()) {
-            return res.status(400).json({ error: "Name and surname are required." });
+            return new Response(JSON.stringify({ error: "Name and surname are required." }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+            });
         }
 
         const [inserted] = await db.insert(employees).values({ name: name.trim(), surname: surname.trim() }).returning();
 
-        return res.status(201).json(inserted);
+        return new Response(JSON.stringify(inserted), {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+        });
     } catch (e) {
         console.error(e);
-        return res.status(500).json({ error: "Server error" });
+        return new Response(JSON.stringify({ error: "Server error" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+        });
     }
 }
