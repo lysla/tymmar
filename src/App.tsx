@@ -20,26 +20,30 @@ export default function App() {
 
     const [name, setName] = useState("");
     const [surname, setSurname] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const [status, setStatus] = useState<null | string>(null);
     const [loading, setLoading] = useState(false);
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         setStatus(null);
-        if (!name.trim() || !surname.trim()) {
-            setStatus("Please enter both name and surname.");
+        if (!email.trim() || !password.trim() || !name.trim() || !surname.trim()) {
+            setStatus("Please enter all fields.");
             return;
         }
         setLoading(true);
         try {
-            const r = await fetch("/api/employees", {
+            const r = await fetch("/api/create-user", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: name.trim(), surname: surname.trim() }),
+                body: JSON.stringify({ email: email.trim(), password: password.trim(), name: name.trim(), surname: surname.trim() }),
             });
             const data = await r.json();
             if (!r.ok) throw new Error(data?.error || "Request failed");
-            setStatus(`Employee created: #${data?.id} ${data?.name} ${data?.surname}`);
+            setStatus(`User created: #${data?.userId} ${data?.employee?.name} ${data?.employee?.surname}`);
+            setEmail("");
+            setPassword("");
             setName("");
             setSurname("");
         } catch (err: unknown) {
@@ -56,8 +60,8 @@ export default function App() {
             <br />
             {text}
             <br />
-            <h2>Add employee</h2>
-            <p>Data is stored in Neon database using Drizzle ORM.</p>
+            <h2>Add employee user</h2>
+            <p>Data is stored in Supabase.</p>
             <br />
             <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, maxWidth: 420 }}>
                 <label>
@@ -68,7 +72,15 @@ export default function App() {
                     Surname
                     <input value={surname} onChange={(e) => setSurname(e.target.value)} placeholder="Lovelace" disabled={loading} />
                 </label>
-                <button disabled={loading}>{loading ? "Saving..." : "Add employee"}</button>
+                <label>
+                    Email
+                    <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="mail@mail.com" disabled={loading} />
+                </label>
+                <label>
+                    Password
+                    <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" disabled={loading} />
+                </label>
+                <button disabled={loading}>{loading ? "Saving..." : "Add user"}</button>
             </form>
             {status && <p style={{ marginTop: 12 }}>{status}</p>}
         </main>
