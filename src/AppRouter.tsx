@@ -5,6 +5,7 @@ import SignIn from "./SignIn";
 import AdminSignIn from "./AdminSignIn";
 import Dashboard from "./Dashboard";
 import AdminDashboard from "./AdminDashboard";
+import AdminAddEmployee from "./AdminAddEmployee";
 
 export default function AppRouter() {
     const { user } = useAuth();
@@ -33,6 +34,15 @@ export default function AppRouter() {
                 element={
                     <RequireAdmin>
                         <AdminDashboard />
+                    </RequireAdmin>
+                }
+            />
+
+            <Route
+                path="/admin/add-user"
+                element={
+                    <RequireAdmin>
+                        <AdminAddEmployee />
                     </RequireAdmin>
                 }
             />

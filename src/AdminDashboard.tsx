@@ -1,107 +1,87 @@
-import { useState, useEffect } from "react";
-import { askAI } from "./api";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import AdminSidebar from "./AdminSidebar";
+import { Link } from "react-router";
+
+type AdminEmployee = {
+    id: number;
+    name: string;
+    surname: string;
+    userId: string | null;
+    email: string;
+};
 
 export default function AdminDashboard() {
-    const [text, setText] = useState<string>("Loading...");
+    const [list, setList] = useState<AdminEmployee[]>([]);
+    const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
 
     useEffect(() => {
-        async function fetchAI() {
+        let active = true;
+        (async () => {
             try {
-                const result = await askAI("Hello world");
-                setText(result);
-            } catch (err) {
-                setText("Error contacting AI 😢");
-                console.error(err);
+                const { data } = await supabase.auth.getSession();
+                const token = data.session?.access_token;
+                const r = await fetch("/api/admin-employees", {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                if (!active) return;
+
+                if (!r.ok) {
+                    setStatus("error");
+                    return;
+                }
+                const json = (await r.json()) as { employees: AdminEmployee[] };
+                setList(json.employees ?? []);
+                setStatus("ok");
+            } catch {
+                setStatus("error");
             }
-        }
-        fetchAI();
+        })();
+        return () => {
+            active = false;
+        };
     }, []);
 
-    const [name, setName] = useState("");
-    const [surname, setSurname] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [status, setStatus] = useState<null | string>(null);
-    const [loading, setLoading] = useState(false);
-
-    async function onSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        setStatus(null);
-        if (!email.trim() || !password.trim() || !name.trim() || !surname.trim()) {
-            setStatus("Please enter all fields.");
-            return;
-        }
-        setLoading(true);
-        try {
-            const sb = await supabase.auth.getSession();
-            const token = sb.data.session?.access_token;
-            const r = await fetch("/api/create-user", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ email: email.trim(), password: password.trim(), name: name.trim(), surname: surname.trim() }),
-            });
-
-            const data = await r.json();
-            if (!r.ok) throw new Error(data?.error || "Request failed");
-            setStatus(`User created: #${data?.userId} ${data?.employee?.name} ${data?.employee?.surname}`);
-            setEmail("");
-            setPassword("");
-            setName("");
-            setSurname("");
-        } catch (err: unknown) {
-            setStatus(`Error: ${err instanceof Error ? err.message : "unknown"}`);
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleSignOut() {
-        const { error } = await supabase.auth.signOut();
-        if (error) console.error("Error signing out:", error.message);
-    }
-
     return (
-        <main style={{ padding: 24, fontFamily: "system-ui" }}>
-            <h1>tymmar</h1>
-            <br />
-            {text}
-            <br />
-            <h2>Add employee user</h2>
-            <p>Data is stored in Supabase.</p>
-            <button
-                onClick={handleSignOut}
-                style={{
-                    padding: "8px 16px",
-                    borderRadius: 6,
-                    border: "1px solid #ccc",
-                    background: "#eee",
-                    cursor: "pointer",
-                }}>
-                Sign out
-            </button>
-            <br />
-            <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, maxWidth: 420 }}>
-                <label>
-                    Name
-                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ada" disabled={loading} />
-                </label>
-                <label>
-                    Surname
-                    <input value={surname} onChange={(e) => setSurname(e.target.value)} placeholder="Lovelace" disabled={loading} />
-                </label>
-                <label>
-                    Email
-                    <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="mail@mail.com" disabled={loading} />
-                </label>
-                <label>
-                    Password
-                    <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" disabled={loading} />
-                </label>
-                <button disabled={loading}>{loading ? "Saving..." : "Add user"}</button>
-            </form>
-            {status && <p style={{ marginTop: 12 }}>{status}</p>}
-        </main>
+        <div className="w-full min-h-dvh bg-paper flex">
+            <AdminSidebar />
+
+            <main className="px-16 py-8 grow">
+                <div className="flex items-center justify-between">
+                    <h1 className="font-serif text-2xl">Employees list</h1>
+                    <Link to="/admin/add-user" className="link">
+                        + Add new
+                    </Link>
+                </div>
+
+                <div className="bg-white p-8 mt-8">
+                    <div className="grid grid-cols-4 gap-x-4 font-semibold pb-2">
+                        <div className="th">Surname</div>
+                        <div className="th">Name</div>
+                        <div className="th">Email</div>
+                        <div className="th">Actions</div>
+                    </div>
+
+                    {status === "loading" && <p className="py-6">Loading…</p>}
+                    {status === "error" && <p className="py-6 text-red-600">Could not load employees.</p>}
+                    {status === "ok" && list.length === 0 && <p className="py-6">No employees yet.</p>}
+
+                    {status === "ok" && list.length > 0 && (
+                        <div className="divide-y divide-light">
+                            {list.map((e) => (
+                                <div key={e.id} className="grid grid-cols-4 gap-x-4 py-2 -mx-4 px-4 hover:bg-tertiary">
+                                    <div>{e.surname}</div>
+                                    <div>{e.name}</div>
+                                    <div className="text-gray">{e.email || <span>no email</span>}</div>
+                                    <div>
+                                        <button className="link">Edit</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </main>
+        </div>
     );
 }
