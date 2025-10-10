@@ -20,11 +20,14 @@ export default function SignIn() {
     }
 
     return (
-        <form onSubmit={onSubmit} style={{ display: "grid", gap: 8, maxWidth: 320 }}>
-            <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input placeholder="password" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} />
-            <button>Sign in</button>
-            {msg && <p>{msg}</p>}
-        </form>
+        <main>
+            <h1>Employee Sign In</h1>
+            <form onSubmit={onSubmit} style={{ display: "grid", gap: 8, maxWidth: 320 }}>
+                <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <input placeholder="password" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} />
+                <button>Sign in</button>
+                {msg && <p>{msg}</p>}
+            </form>
+        </main>
     );
 }

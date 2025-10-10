@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
-        await requireAdmin(req); // ✅ instantly protects the route
+        await requireAdmin(req);
 
         const { email, password, name, surname } = req.body ?? {};
         if (!email || !name || !surname) return res.status(400).json({ error: "Missing fields" });

@@ -1,26 +1,35 @@
-import { supabase } from "./supabase";
+// src/Dashboard.tsx
+import { useAuth } from "./context/AuthContext";
+import { useEmployee } from "./context/EmployeeContext";
 
 export default function Dashboard() {
-    async function handleSignOut() {
-        const { error } = await supabase.auth.signOut();
-        if (error) console.error("Error signing out:", error.message);
+    const { signOut } = useAuth();
+    const { status, employee, refetch } = useEmployee();
+
+    if (status === "idle" || status === "loading") return <p>Loading…</p>;
+    if (status === "error") {
+        return (
+            <div>
+                <h2>Something went wrong</h2>
+                <button onClick={() => void refetch()}>Try again</button>
+            </div>
+        );
+    }
+    if (status === "missing") {
+        return (
+            <div>
+                <h2>Account not configured</h2>
+                <p>Your login is active, but your employee profile isn’t set up yet.</p>
+                <button onClick={signOut}>Sign out</button>
+            </div>
+        );
     }
 
     return (
-        <main style={{ padding: 24, fontFamily: "system-ui" }}>
-            <h1>tymmar</h1>
-            <br />
-            <button
-                onClick={handleSignOut}
-                style={{
-                    padding: "8px 16px",
-                    borderRadius: 6,
-                    border: "1px solid #ccc",
-                    background: "#eee",
-                    cursor: "pointer",
-                }}>
-                Sign out
-            </button>
+        <main>
+            <h1>Welcome, {employee?.name}</h1>
+            <button onClick={signOut}>Sign out</button>
+            {/* …rest of employee dashboard… */}
         </main>
     );
 }
