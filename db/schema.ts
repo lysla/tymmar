@@ -34,11 +34,5 @@ export const hours = pgTable(
         toTime: time("to_time").notNull(),
         type: text("type").notNull(), // or switch to a pgEnum later
     },
-    (t) => [
-        index("hours_employee_idx").on(t.employeeId),
-        index("hours_employee_date_idx").on(t.employeeId, t.workDate),
-        unique("hours_emp_date_from_to_uk").on(t.employeeId, t.workDate, t.fromTime, t.toTime),
-        // If you want "one row per day" instead, use this instead of the interval unique:
-        // unique("hours_emp_date_uk").on(t.employeeId, t.workDate),
-    ]
+    (t) => [index("hours_employee_idx").on(t.employeeId), index("hours_employee_date_idx").on(t.employeeId, t.workDate), unique("hours_emp_date_from_to_uk").on(t.employeeId, t.workDate, t.fromTime, t.toTime)]
 );

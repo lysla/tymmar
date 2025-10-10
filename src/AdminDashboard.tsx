@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { askAI } from "./api";
 import { supabase } from "./supabase";
-import "./App.css";
 
-export default function Admin() {
+export default function AdminDashboard() {
     const [text, setText] = useState<string>("Loading...");
 
     useEffect(() => {

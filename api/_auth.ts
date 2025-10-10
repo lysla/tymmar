@@ -1,52 +1,54 @@
-// api/_auth.ts
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest } from "@vercel/node";
+import { db } from "./db";
+import { employees } from "../db/schema";
+import { eq } from "drizzle-orm";
+import type { User } from "@supabase/supabase-js";
 
-// Supabase client for verifying JWTs (uses anon key)
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 
-/**
- * Verifies the caller's access token from the Authorization header
- * and ensures the user is authenticated.
- *
- * @throws {Error & {status: number}} when invalid/missing/unauthorized
- */
-export async function requireUser(req: VercelRequest) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-        const err = new Error("Missing or invalid Authorization header") as Error & { status: number };
-        err.status = 401;
-        throw err;
-    }
+type EmployeeRow = typeof employees.$inferSelect;
+type HttpErr = Error & { status: number };
 
-    const token = authHeader.split(" ")[1];
+function httpError(status: number, message: string): HttpErr {
+    const err = new Error(message) as HttpErr;
+    err.status = status;
+    return err;
+}
+
+function getToken(req: VercelRequest) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) throw httpError(401, "Missing or invalid Authorization header");
+    return authHeader.slice(7);
+}
+
+export async function requireUser(req: VercelRequest): Promise<User> {
+    const token = getToken(req);
     const {
         data: { user },
         error,
     } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-        const err = new Error("Invalid or expired token") as Error & { status: number };
-        err.status = 401;
-        throw err;
-    }
-
+    if (error || !user) throw httpError(401, "Invalid or expired token");
     return user;
 }
 
-/**
- * Verifies the caller is an authenticated admin.
- *
- * @throws {Error & {status: number}} when unauthorized or not admin
- */
-export async function requireAdmin(req: VercelRequest) {
+export async function requireAdmin(req: VercelRequest): Promise<User> {
+    const user = await requireUser(req);
+    if (!user.app_metadata?.is_admin) throw httpError(403, "Forbidden: admin only");
+    return user;
+}
+
+export async function requireEmployee(req: VercelRequest, opts: { allowAdmin?: boolean } = {}): Promise<{ user: User; employee: EmployeeRow | null }> {
     const user = await requireUser(req);
 
-    if (!user.app_metadata?.is_admin) {
-        const err = new Error("Forbidden: admin only") as Error & { status: number };
-        err.status = 403;
-        throw err;
+    if (opts.allowAdmin && user.app_metadata?.is_admin) {
+        return { user, employee: null };
     }
 
-    return user;
+    const rows = await db.select().from(employees).where(eq(employees.userId, user.id)).limit(1);
+    const employee = rows[0] ?? null;
+
+    if (!employee) throw httpError(403, "Forbidden: employee account required");
+
+    return { user, employee };
 }

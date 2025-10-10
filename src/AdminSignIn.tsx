@@ -1,9 +1,9 @@
-// src/SignIn.tsx  (employee)
+// src/AdminSignIn.tsx
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "./hooks/useAuth";
 
-export default function SignIn() {
+export default function AdminSignIn() {
     const { signInWithPassword, isAdmin } = useAuth();
     const [email, setEmail] = useState("");
     const [pwd, setPwd] = useState("");
@@ -15,13 +15,14 @@ export default function SignIn() {
         e.preventDefault();
         const { error } = await signInWithPassword(email, pwd);
         if (error) return setMsg(error);
-        // if someone logs in as admin here, send them to admin
-        nav(isAdmin ? "/admin" : loc.state?.from?.pathname ?? "/", { replace: true });
+        // only allow admins to proceed
+        if (!isAdmin) return setMsg("Forbidden: admin only");
+        nav(loc.state?.from?.pathname ?? "/admin", { replace: true });
     }
 
     return (
         <form onSubmit={onSubmit} style={{ display: "grid", gap: 8, maxWidth: 320 }}>
-            <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input placeholder="admin email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input placeholder="password" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} />
             <button>Sign in</button>
             {msg && <p>{msg}</p>}
