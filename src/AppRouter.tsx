@@ -1,4 +1,3 @@
-// AppRouter.tsx
 import { Routes, Route, Navigate } from "react-router";
 import { useAuth } from "./context/AuthContext";
 import { RequireAuth, RequireAdmin } from "./RouteGuards";

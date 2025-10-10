@@ -1,4 +1,3 @@
-// src/SignIn.tsx  (employee)
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "./hooks/useAuth";
