@@ -1,8 +1,8 @@
-// api/get-settings.ts
+// api/settings.ts
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { db } from "./db";
+import { db } from "./_db";
 import { settings } from "../db/schema";
 import { desc } from "drizzle-orm";
 import { requireUser } from "./_auth"; // auth required to read

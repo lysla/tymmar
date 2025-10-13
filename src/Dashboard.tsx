@@ -105,7 +105,7 @@ export default function Dashboard() {
         (async () => {
             try {
                 const token = await getAccessToken();
-                const r = await fetch("/api/get-settings", {
+                const r = await fetch("/api/settings", {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!active) return;
@@ -130,7 +130,7 @@ export default function Dashboard() {
                 setWeekErr(null);
                 const token = await getAccessToken();
                 const { from, to } = weekRangeISO(weekStart);
-                const r = await fetch(`/api/get-hours?from=${from}&to=${to}`, {
+                const r = await fetch(`/api/hours?from=${from}&to=${to}`, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!active) return;
@@ -164,8 +164,8 @@ export default function Dashboard() {
                     type: "work" as const,
                 })),
             };
-            const r = await fetch("/api/upsert-hours", {
-                method: "POST",
+            const r = await fetch("/api/hours", {
+                method: "PUT",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(payload),
             });
@@ -184,13 +184,13 @@ export default function Dashboard() {
         try {
             setClosing(true);
             const token = await getAccessToken();
-            const body = { weekStart: toISO(weekStart) };
-
-            const endpoint = isClosed ? "/api/reopen-period" : "/api/close-period";
-            const r = await fetch(endpoint, {
-                method: "POST",
+            const r = await fetch("/api/periods", {
+                method: "PATCH",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify(body),
+                body: JSON.stringify({
+                    action: isClosed ? "reopen" : "close",
+                    weekStart: toISO(weekStart),
+                }),
             });
             const data = await r.json();
             if (!r.ok) throw new Error(data?.error || "Action failed");
@@ -206,7 +206,7 @@ export default function Dashboard() {
     async function reloadWeek() {
         const token = await getAccessToken();
         const { from, to } = weekRangeISO(weekStart);
-        const r = await fetch(`/api/get-hours?from=${from}&to=${to}`, {
+        const r = await fetch(`/api/hours?from=${from}&to=${to}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!r.ok) throw new Error("Failed to reload week");
@@ -296,7 +296,11 @@ export default function Dashboard() {
 
                     {/* Loading/Error states for week */}
                     {loadingWeek && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
-                    {weekErr && !loadingWeek && <p className="py-6 text-center text-red-600">{weekErr}</p>}
+                    {weekErr && !loadingWeek && (
+                        <p className="py-6 text-center error">
+                            <span>{weekErr}</span>
+                        </p>
+                    )}
 
                     {/* Days grid */}
                     {!loadingWeek && !weekErr && (
@@ -330,14 +334,16 @@ export default function Dashboard() {
                     )}
 
                     {/* AI helper mock (inactive now) */}
-                    <div className="mt-8 pt-8 border-t border-light">
-                        <p className="text-sm mb-4">
-                            <img src="/images/sparkes.svg" alt="" className="inline-block mr-2 h-5" /> Feeling lazy? Just ask tymmar to fill your hours for you!
-                        </p>
-                        <div>
-                            <input type="text" className="input" placeholder="Just fill in my week normally, I worked all week..." disabled />
+                    {!loadingWeek && !weekErr && (
+                        <div className="mt-8 pt-8 border-t border-light">
+                            <p className="text-sm mb-4">
+                                <img src="/images/sparkes.svg" alt="" className="inline-block mr-2 h-5" /> Feeling lazy? Just ask tymmar to fill your hours for you!
+                            </p>
+                            <div>
+                                <input type="text" className="input" placeholder="Just fill in my week normally, I worked all week..." disabled />
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Unsaved edits notice */}
                     {!loadingWeek && !weekErr && !isClosed && isDirty && (
@@ -353,16 +359,18 @@ export default function Dashboard() {
             </div>
 
             {/* Floating toolbar */}
-            <div className="flowing-toolbar flowing-toolbar--alt">
-                {!isClosed && (
-                    <button className="button button--alt" title="Save period" onClick={handleSaveWeek} disabled={loadingWeek || !isDirty || saving}>
-                        {saving ? "Saving…" : "Save period"}
+            {!loadingWeek && (
+                <div className="flowing-toolbar flowing-toolbar--alt">
+                    {!isClosed && (
+                        <button className="button button--alt" title="Save period" onClick={handleSaveWeek} disabled={loadingWeek || !isDirty || saving}>
+                            {saving ? "Saving…" : "Save period"}
+                        </button>
+                    )}
+                    <button className="button button--alt2" title={isClosed ? "Reopen period" : "Close period"} onClick={handleCloseOrReopen} disabled={loadingWeek || closing}>
+                        {closing ? (isClosed ? "Reopening…" : "Closing…") : isClosed ? "Reopen period" : "Close period"}
                     </button>
-                )}
-                <button className="button button--alt2" title={isClosed ? "Reopen period" : "Close period"} onClick={handleCloseOrReopen} disabled={loadingWeek || closing}>
-                    {closing ? (isClosed ? "Reopening…" : "Closing…") : isClosed ? "Reopen period" : "Close period"}
-                </button>
-            </div>
+                </div>
+            )}
         </>
     );
 }

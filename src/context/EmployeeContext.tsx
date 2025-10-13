@@ -36,7 +36,7 @@ export function EmployeeProvider({ children }: { children: React.ReactNode }) {
                 fetchedRef.current = user.id;
                 return;
             }
-            const res = await fetch("/api/get-employee", {
+            const res = await fetch("/api/admin/employees?id=me", {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error("HTTP " + res.status);

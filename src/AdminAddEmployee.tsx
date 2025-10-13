@@ -10,7 +10,7 @@ export default function AdminAddEmployee() {
         const sb = await supabase.auth.getSession();
         const token = sb.data.session?.access_token;
 
-        const r = await fetch("/api/create-user", {
+        const r = await fetch("/api/admin/employees", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify(values),

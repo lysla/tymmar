@@ -15,7 +15,7 @@ export default function AdminEditEmployee() {
             try {
                 const { data } = await supabase.auth.getSession();
                 const token = data.session?.access_token;
-                const r = await fetch(`/api/admin-get-employee?id=${encodeURIComponent(String(id))}`, {
+                const r = await fetch(`/api/admin/employees?id=${encodeURIComponent(String(id))}`, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!active) return;
@@ -35,8 +35,8 @@ export default function AdminEditEmployee() {
     async function handleUpdate(values: FormEmployeeValues) {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        const r = await fetch("/api/admin-update-employee", {
-            method: "POST",
+        const r = await fetch("/api/admin/employees", {
+            method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ id: Number(id), ...values }),
         });

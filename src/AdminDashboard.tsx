@@ -33,7 +33,7 @@ export default function AdminDashboard() {
             try {
                 const { data } = await supabase.auth.getSession();
                 const token = data.session?.access_token;
-                const r = await fetch("/api/admin-get-employees", {
+                const r = await fetch("/api/admin/employees", {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!active) return;
@@ -75,8 +75,8 @@ export default function AdminDashboard() {
             const { data } = await supabase.auth.getSession();
             const token = data.session?.access_token;
 
-            const r = await fetch("/api/admin-delete-employees", {
-                method: "POST",
+            const r = await fetch("/api/admin/employees", {
+                method: "DELETE",
                 headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
                 body: JSON.stringify({ ids }),
             });
