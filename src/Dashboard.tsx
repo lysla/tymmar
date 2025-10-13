@@ -80,26 +80,28 @@ export default function Dashboard() {
     return (
         <>
             <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
-                <div className="bg-white p-8">
-                    <header className="flex items-center justify-between">
-                        <h1>
-                            <span className="font-serif uppercase">Hello</span> {employee?.name}!
-                        </h1>
-                        <button className="link" onClick={signOut}>
-                            Sign out
-                        </button>
-                    </header>
-                </div>
+                <header className="flex items-center justify-between">
+                    <h1>
+                        <span className="font-serif uppercase">Hello</span> {employee?.name}!
+                    </h1>
+                    <button className="link" onClick={signOut}>
+                        Sign out
+                    </button>
+                </header>
 
                 <div className="bg-white mt-8 p-8">
+                    <p className="text-center text-gray text-sm mb-4">
+                        <span className="bg-tertiary">This period is closed.</span>
+                    </p>
+
                     <div className="flex items-center justify-center gap-x-4">
-                        <button className="text-secondary font-bold cursor-pointer" onClick={prevWeek} aria-label="Previous week">
+                        <button className="text-primary font-bold cursor-pointer" onClick={prevWeek} aria-label="Previous week">
                             &lt;
                         </button>
                         <p>
                             {weekStart.toLocaleDateString()} — {addDays(weekStart, 6).toLocaleDateString()}
                         </p>
-                        <button className="text-secondary font-bold cursor-pointer" onClick={nextWeek} aria-label="Next week">
+                        <button className="text-primary font-bold cursor-pointer" onClick={nextWeek} aria-label="Next week">
                             &gt;
                         </button>
                     </div>
@@ -109,7 +111,7 @@ export default function Dashboard() {
                         <span className="progress progress--alt [ mr-2 ]" title={`${weekPct}%`}>
                             <span className="progress__bar progress__bar--alt" style={{ width: `${weekPct}%` }} />
                         </span>
-                        <p className="text-xs text-secondary leading-[1]">
+                        <p className="text-xs text-primary leading-[1]">
                             {weekPct}% &nbsp;({weekTotal.toFixed(2)} / {weekExpected})
                         </p>
                     </div>
@@ -135,10 +137,23 @@ export default function Dashboard() {
 
                                     <p className="text-xs mt-4">Expected hours: {expected}</p>
 
-                                    <input type="number" className={`input input--text [ mt-4 ]`} min={0} max={24} step={0.25} value={entered || ""} onChange={(e) => setVal(d, Number(e.target.value))} placeholder="0" disabled={disabled} />
+                                    <input type="number" className={`input input--text [ mt-4 ]`} min={0} max={24} step={1} value={entered || ""} onChange={(e) => setVal(d, Number(e.target.value))} placeholder="0" disabled={disabled} />
                                 </div>
                             );
                         })}
+                    </div>
+
+                    <div className="mt-8 pt-8 border-t border-light">
+                        <p className="text-sm mb-4">
+                            <img src="/images/sparkes.svg" alt="" className="inline-block mr-2 h-5" /> Feeling lazy? Just ask tymmar to fill your hours for you!
+                        </p>
+                        <div>
+                            <input type="text" className="input" placeholder="Just fill in my week normally, I worked all week..." />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end mt-8 text-xs text-secondary">
+                        <p>There are unsaved edits! Remember to save!</p>
                     </div>
                 </div>
 
