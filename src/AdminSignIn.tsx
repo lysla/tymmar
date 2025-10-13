@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./hooks/useAuth";
 
 export default function AdminSignIn() {
-    const { signInWithPassword, isAdmin } = useAuth();
+    const { signInWithPassword } = useAuth();
     const [email, setEmail] = useState("");
     const [pwd, setPwd] = useState("");
     const [msg, setMsg] = useState<string | null>(null);
