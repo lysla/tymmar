@@ -15,6 +15,20 @@
       "when": 1760014142036,
       "tag": "0001_faithful_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1760352843622,
+      "tag": "0002_nice_whistler",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1760353396818,
+      "tag": "0003_handy_vision",
+      "breakpoints": true
     }
   ]
 }

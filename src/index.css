@@ -40,6 +40,9 @@ body > div:first-child {
 .button {
     @apply cursor-pointer px-4 py-2 bg-primary text-light hover:bg-secondary active:bg-tertiary active:text-dark;
 }
+.button[disabled] {
+    @apply cursor-not-allowed opacity-50;
+}
 .button--alt {
     @apply bg-tertiary text-primary hover:bg-primary hover:text-tertiary active:bg-secondary;
 }
