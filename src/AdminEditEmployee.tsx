@@ -1,6 +1,6 @@
 // src/AdminEditEmployee.tsx
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { supabase } from "./supabase";
 import AdminFormEmployee, { type FormEmployeeValues } from "./AdminFormEmployee";
 
@@ -54,7 +54,7 @@ export default function AdminEditEmployee() {
             </div>
 
             <div className="bg-white p-8 mt-8">
-                {state === "loading" && <p>Loading…</p>}
+                {state === "loading" && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
                 {state === "error" && (
                     <p className="error">
                         <span>Could not load employee.</span>

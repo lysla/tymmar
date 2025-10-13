@@ -128,7 +128,7 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                {status === "loading" && <p className="py-6">Loading…</p>}
+                {status === "loading" && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
                 {status === "error" && (
                     <p className="py-6 error">
                         <span>Could not load employees.</span>

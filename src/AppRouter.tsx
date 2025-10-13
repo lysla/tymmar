@@ -12,7 +12,12 @@ import AdminLayout from "./AdminLayout";
 
 export default function AppRouter() {
     const { user, isAdmin, loading } = useAuth();
-    if (loading) return <p>Loading…</p>;
+    if (loading)
+        return (
+            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+                <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
+            </div>
+        );
 
     return (
         <Routes>

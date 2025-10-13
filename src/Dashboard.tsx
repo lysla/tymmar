@@ -217,7 +217,12 @@ export default function Dashboard() {
     }
 
     // ---------------- Employee state handling ----------------
-    if (status === "idle" || status === "loading") return <p>Loading…</p>;
+    if (status === "idle" || status === "loading")
+        return (
+            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+                <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
+            </div>
+        );
     if (status === "error") {
         return (
             <div>
@@ -290,7 +295,7 @@ export default function Dashboard() {
                     )}
 
                     {/* Loading/Error states for week */}
-                    {loadingWeek && <p className="py-6 text-center">Loading week…</p>}
+                    {loadingWeek && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
                     {weekErr && !loadingWeek && <p className="py-6 text-center text-red-600">{weekErr}</p>}
 
                     {/* Days grid */}
