@@ -6,7 +6,6 @@ import AdminFormEmployee, { type FormEmployeeValues } from "./AdminFormEmployee"
 
 export default function AdminEditEmployee() {
     const { id } = useParams();
-    const nav = useNavigate();
     const [initial, setInitial] = useState<FormEmployeeValues | null>(null);
     const [state, setState] = useState<"loading" | "ok" | "error">("loading");
 
