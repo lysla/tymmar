@@ -227,7 +227,6 @@ export default function Dashboard() {
             setAiMsg(null);
 
             const token = await getAccessToken();
-            const weekStartISO = weekStart.toISOString().slice(0, 10);
 
             // Build a stable set of valid keys for THIS week
             const weekSet = new Set(weekDatesISO);
