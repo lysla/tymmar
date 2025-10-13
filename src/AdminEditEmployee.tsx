@@ -43,7 +43,6 @@ export default function AdminEditEmployee() {
         });
         const json = await r.json();
         if (!r.ok) throw new Error(json?.error || "Request failed");
-        setTimeout(() => nav("/admin"), 600);
     }
 
     return (
