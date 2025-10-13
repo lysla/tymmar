@@ -34,11 +34,17 @@ body > div:first-child {
 .input {
     @apply outline-none border border-dark px-4 py-2 w-full;
 }
+.input--text {
+    @apply w-[90px];
+}
 .button {
     @apply cursor-pointer px-4 py-2 bg-primary text-light hover:bg-secondary active:bg-tertiary active:text-dark;
 }
 .button--alt {
     @apply bg-tertiary text-primary hover:bg-primary hover:text-tertiary active:bg-secondary;
+}
+.button--alt2 {
+    @apply bg-secondary hover:bg-primary hover:text-secondary active:bg-tertiary;
 }
 .link {
     @apply text-primary font-bold border-b cursor-pointer hover:text-secondary active:text-dark;
@@ -73,4 +79,20 @@ body > div:first-child {
 
 .flowing-toolbar {
     @apply fixed top-0 left-1/2 -translate-x-1/2 flex gap-x-4;
+}
+.flowing-toolbar--alt {
+    @apply top-auto left-auto bottom-8 right-0 translate-0 flex-col gap-x-0 gap-y-4;
+}
+
+.progress {
+    @apply w-[60%] border border-primary flex;
+}
+.progress--alt {
+    @apply max-w-[200px] border-secondary;
+}
+.progress__bar {
+    @apply bg-primary h-[20px];
+}
+.progress__bar--alt {
+    @apply bg-secondary h-[10px];
 }
