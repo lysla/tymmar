@@ -12,9 +12,9 @@ export default function AdminSignIn() {
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
-        const { error } = await signInWithPassword(email, pwd);
+        const { error, user } = await signInWithPassword(email, pwd);
         if (error) return setMsg(error);
-        // only allow admins to proceed
+        const isAdmin = Boolean((user?.app_metadata as any)?.is_admin);
         if (!isAdmin) return setMsg("Forbidden: admin only");
         nav(loc.state?.from?.pathname ?? "/admin", { replace: true });
     }

@@ -8,7 +8,10 @@ import AdminDashboard from "./AdminDashboard";
 import AdminAddEmployee from "./AdminAddEmployee";
 
 export default function AppRouter() {
-    const { user } = useAuth();
+    const { user, isAdmin, loading } = useAuth();
+
+    // Optional: avoid flicker while we don't know the session
+    if (loading) return <p>Loading…</p>;
 
     return (
         <Routes>
@@ -25,8 +28,8 @@ export default function AppRouter() {
                 }
             />
 
-            {/* Employee sign-in */}
-            <Route path="/signin" element={<SignIn />} />
+            {/* Employee sign-in: if logged in, always go to / */}
+            <Route path="/signin" element={user ? <Navigate to="/" replace /> : <SignIn />} />
 
             {/* Admin app: admin-only */}
             <Route
@@ -47,8 +50,11 @@ export default function AppRouter() {
                 }
             />
 
-            {/* Admin sign-in */}
-            <Route path="/admin/signin" element={<AdminSignIn />} />
+            {/* Admin sign-in:
+          - if logged in AND admin → /admin
+          - if logged in but NOT admin → /
+          - if logged out → show admin signin */}
+            <Route path="/admin/signin" element={user ? isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/" replace /> : <AdminSignIn />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,3 +1,4 @@
+// src/hooks/useAuth.ts
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../supabase";
@@ -6,7 +7,7 @@ type AuthState = {
     user: User | null;
     loading: boolean;
     isAdmin: boolean;
-    signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
+    signInWithPassword: (email: string, password: string) => Promise<{ error?: string; user?: User | null }>;
     signOut: () => Promise<void>;
     getAccessToken: () => Promise<string | undefined>;
 };
@@ -41,11 +42,21 @@ export function useAuth(): AuthState {
 
     async function signInWithPassword(email: string, password: string) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        return error ? { error: error.message } : {};
+        if (error) return { error: error.message };
+
+        // 🔑 fetch the fresh user from the *new* session
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+        // ensure context updates immediately
+        setUser(user ?? null);
+
+        return { user: user ?? null };
     }
 
     async function signOut() {
         await supabase.auth.signOut();
+        setUser(null);
     }
 
     async function getAccessToken() {
