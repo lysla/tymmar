@@ -48,25 +48,27 @@ export default function AdminDashboard() {
             </div>
 
             <div className="bg-white p-8 mt-8">
-                <div className="grid grid-cols-4 gap-x-4 font-semibold pb-2">
-                    <div className="th">Surname</div>
-                    <div className="th">Name</div>
-                    <div className="th">Email</div>
-                    <div className="th">Actions</div>
-                </div>
-
                 {status === "loading" && <p className="py-6">Loading…</p>}
                 {status === "error" && <p className="py-6 text-red-600">Could not load employees.</p>}
                 {status === "ok" && list.length === 0 && <p className="py-6">No employees yet.</p>}
 
+                <div className="grid grid-cols-[1fr_1fr_2fr_auto] gap-x-4 font-semibold pb-2">
+                    <div className="th">Surname</div>
+                    <div className="th">Name</div>
+                    <div className="th">Email</div>
+                    <div className="th">
+                        <span className="opacity-0">Edit</span>
+                    </div>
+                </div>
+
                 {status === "ok" && list.length > 0 && (
                     <div className="divide-y divide-light">
                         {list.map((e) => (
-                            <div key={e.id} className="grid grid-cols-4 gap-x-4 py-2 -mx-4 px-4 hover:bg-tertiary">
+                            <div key={e.id} className="grid grid-cols-[1fr_1fr_2fr_auto] gap-x-4 py-2 -mx-4 px-4 hover:bg-tertiary">
                                 <div>{e.surname}</div>
                                 <div>{e.name}</div>
                                 <div className="text-gray">{e.email || <span>no email</span>}</div>
-                                <div>
+                                <div className="text-right">
                                     <button className="link">Edit</button>
                                 </div>
                             </div>
