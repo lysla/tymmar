@@ -1,68 +1,101 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@import url("./assets/fonts/fonts.css");
+@import "tailwindcss";
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+@theme {
+    --font-sans: "Azeret Mono", monospace, sans-serif;
+    --font-serif: "Fredericka the Great", serif;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    --color-primary: #3a726f;
+    --color-secondary: #ff5cd6;
+    --color-tertiary: #eeff41;
+    --color-light: #fbf9f8;
+    --color-dark: #1a1a1a;
+    --color-gray: #525252;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
+html,
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+    @apply h-full text-dark;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+body > div:first-child {
+    @apply h-full flex flex-col;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.bg-paper {
+    background-image: url("/images/bg.avif");
+    background-size: contain;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.logo-typo {
+    @apply font-serif text-xl;
+}
+
+.input {
+    @apply outline-none border border-dark px-4 py-2 w-full;
+}
+.input--text {
+    @apply w-[90px];
+}
+.button {
+    @apply cursor-pointer px-4 py-2 bg-primary text-light hover:bg-secondary active:bg-tertiary active:text-dark;
+}
+.button[disabled] {
+    @apply cursor-not-allowed opacity-50;
+}
+.button--alt {
+    @apply bg-tertiary text-primary hover:bg-primary hover:text-tertiary active:bg-secondary;
+}
+.button--alt2 {
+    @apply bg-secondary hover:bg-primary hover:text-secondary active:bg-tertiary;
+}
+.link {
+    @apply text-primary font-bold border-b cursor-pointer hover:text-secondary active:text-dark;
+}
+.error {
+    @apply text-sm;
+}
+.error > span {
+    @apply bg-tertiary;
+}
+.th {
+    @apply text-gray text-sm mb-4;
+}
+
+.checkbox {
+    @apply inline-flex items-center;
+}
+.checkbox > input {
+    @apply hidden appearance-none;
+}
+.checkbox > label {
+    @apply cursor-pointer inline-flex items-center;
+}
+.checkbox > label::before {
+    @apply content-[''] inline-flex border border-gray w-5 h-5 mr-4 text-white bg-no-repeat bg-center;
+    background-size: 60% 60%;
+}
+.checkbox > input:checked + label::before {
+    @apply bg-secondary border-secondary;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 69'%3E%3Cpolygon points='0 38 10 25 36 47 78 0 90 11 37 69 0 38' fill='%23fff'/%3E%3C/svg%3E");
+}
+
+.flowing-toolbar {
+    @apply fixed top-0 left-1/2 -translate-x-1/2 flex gap-x-4;
+}
+.flowing-toolbar--alt {
+    @apply top-auto left-auto bottom-8 right-0 translate-0 flex-col gap-x-0 gap-y-4;
+}
+
+.progress {
+    @apply w-[60%] border border-primary flex;
+}
+.progress--alt {
+    @apply max-w-[200px];
+}
+.progress__bar {
+    @apply bg-primary h-[20px];
+}
+.progress__bar--alt {
+    @apply h-[10px];
 }
