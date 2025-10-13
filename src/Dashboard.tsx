@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./context/AuthContext";
 import { useEmployee } from "./context/EmployeeContext";
+import { askAIForHours } from "./api";
 
 type Settings = { mon: number; tue: number; wed: number; thu: number; fri: number; sat: number; sun: number };
 type PeriodInfo = { weekKey: string; weekStartDate: string; closed: boolean; totalHours: number };
@@ -216,6 +217,71 @@ export default function Dashboard() {
         // snapshot will be reset by entries->hoursDraft effect
     }
 
+    const [aiCmd, setAiCmd] = useState("");
+    const [aiBusy, setAiBusy] = useState(false);
+    const [aiMsg, setAiMsg] = useState<string | null>(null);
+
+    async function handleAIApply() {
+        try {
+            setAiBusy(true);
+            setAiMsg(null);
+
+            const token = await getAccessToken();
+            const weekStartISO = weekStart.toISOString().slice(0, 10);
+
+            // Build a stable set of valid keys for THIS week
+            const weekSet = new Set(weekDatesISO);
+
+            // Current entries used only to provide a type fallback to the AI
+            const currentEntries = Object.fromEntries(
+                weekDatesISO.map((d) => [
+                    d,
+                    {
+                        totalHours: Number(hoursDraft[d] ?? 0),
+                        type: (entries[d]?.type ?? "work") as "work" | "sick" | "time_off",
+                    },
+                ])
+            );
+
+            // Ask AI
+            const { suggestions, rationale } = await askAIForHours({
+                command: aiCmd || "Fill a normal week based on expected hours.",
+                weekStart: weekStart.toISOString().slice(0, 10),
+                expectedByDay: [...expectedByDay],
+                entries: currentEntries,
+                allowedDates: weekDatesISO, // ← add this
+                token,
+            });
+
+            // Keep only suggestions that match EXACTLY one of this week’s keys
+            const filtered = suggestions
+                .filter((s) => weekSet.has(s.date))
+                .map((s) => ({
+                    date: s.date,
+                    totalHours: Math.max(0, Math.min(24, Number(s.totalHours || 0))), // clamp & coerce
+                }));
+
+            if (filtered.length === 0) {
+                setAiMsg("AI returned no applicable changes for this week.");
+                return;
+            }
+
+            // Update local draft so inputs reflect immediately (no persistence)
+            setHoursDraft((prev) => {
+                const next = { ...prev };
+                for (const s of filtered) next[s.date] = s.totalHours;
+                return next;
+            });
+
+            setAiMsg(rationale || `Applied ${filtered.length} change(s).`);
+            setAiCmd("");
+        } catch (e: any) {
+            setAiMsg(e?.message || "AI failed");
+        } finally {
+            setAiBusy(false);
+        }
+    }
+
     // ---------------- Employee state handling ----------------
     if (status === "idle" || status === "loading")
         return (
@@ -248,7 +314,7 @@ export default function Dashboard() {
     return (
         <>
             <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
-                <header className="flex items-center justify-between bg-white px-8 py-6 rounded">
+                <header className="flex items-center justify-between bg-white px-8 py-6">
                     <h1>
                         <span className="font-serif uppercase">Hello</span> {employee?.name}!
                     </h1>
@@ -257,7 +323,7 @@ export default function Dashboard() {
                     </button>
                 </header>
 
-                <div className="bg-white mt-8 p-8 rounded">
+                <div className="bg-white mt-8 p-8">
                     {/* Closed badge */}
                     {!loadingWeek && !weekErr && period?.closed && (
                         <p className="text-center error mb-4">
@@ -337,11 +403,19 @@ export default function Dashboard() {
                     {!loadingWeek && !weekErr && (
                         <div className="mt-8 pt-8 border-t border-light">
                             <p className="text-sm mb-4">
-                                <img src="/images/sparkes.svg" alt="" className="inline-block mr-2 h-5" /> Feeling lazy? Just ask tymmar to fill your hours for you!
+                                <img src="/images/sparkes.svg" alt="" className="inline-block mr-2 h-5" /> Feeling lazy? Just ask tymmar to fill your hours!
                             </p>
-                            <div>
-                                <input type="text" className="input" placeholder="Just fill in my week normally, I worked all week..." disabled />
+                            <div className="flex items-center gap-2">
+                                <input type="text" className="input" placeholder='e.g. "Fill Mon–Fri with normal hours, mark Wed sick"' value={aiCmd} onChange={(e) => setAiCmd(e.target.value)} disabled={aiBusy || isClosed} />
+                                <button className="button [ whitespace-nowrap ]" onClick={handleAIApply} disabled={aiBusy || isClosed}>
+                                    {aiBusy ? "Thinking…" : "↲"}
+                                </button>
                             </div>
+                            {aiMsg && (
+                                <p className="error mt-4">
+                                    <span>{aiMsg}</span>
+                                </p>
+                            )}
                         </div>
                     )}
 
