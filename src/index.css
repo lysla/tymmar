@@ -37,6 +37,9 @@ body > div:first-child {
 .button {
     @apply cursor-pointer px-4 py-2 bg-primary text-light hover:bg-secondary active:bg-tertiary active:text-dark;
 }
+.button--alt {
+    @apply bg-tertiary text-primary hover:bg-primary hover:text-tertiary active:bg-secondary;
+}
 .link {
     @apply text-primary font-bold border-b cursor-pointer hover:text-secondary active:text-dark;
 }
@@ -48,4 +51,26 @@ body > div:first-child {
 }
 .th {
     @apply text-gray text-sm mb-4;
+}
+
+.checkbox {
+    @apply inline-flex items-center;
+}
+.checkbox > input {
+    @apply hidden appearance-none;
+}
+.checkbox > label {
+    @apply cursor-pointer inline-flex items-center;
+}
+.checkbox > label::before {
+    @apply content-[''] inline-flex border border-gray w-5 h-5 mr-4 text-white bg-no-repeat bg-center;
+    background-size: 60% 60%;
+}
+.checkbox > input:checked + label::before {
+    @apply bg-secondary border-secondary;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 69'%3E%3Cpolygon points='0 38 10 25 36 47 78 0 90 11 37 69 0 38' fill='%23fff'/%3E%3C/svg%3E");
+}
+
+.flowing-toolbar {
+    @apply fixed top-0 left-1/2 -translate-x-1/2 flex gap-x-4;
 }
