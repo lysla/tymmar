@@ -4,19 +4,42 @@ export const config = { runtime: "nodejs" };
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { inArray, eq } from "drizzle-orm";
-import { db } from "./../_db";
-import { employees } from "../../db/schema";
-import { requireAdmin, requireUser } from "./../_auth";
+import { db } from "./_db";
+import { employees } from "../db/schema";
+import { requireAdmin, requireUser } from "./_auth";
+import type { Employee } from "../src/types/db"; //
 
 const supaAdmin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 function isPositiveInt(n: unknown): n is number {
     return typeof n === "number" && Number.isInteger(n) && n > 0;
 }
+function isValidDateRange(start?: string | null, end?: string | null) {
+    if (!start || !end) return true; // one or both are null → always valid
+    const s = new Date(start);
+    const e = new Date(end);
+    return !isNaN(s.getTime()) && !isNaN(e.getTime()) && s <= e;
+}
+
+// Map a Drizzle row + email into our public DTO
+function toEmployeeDTO(row: typeof employees.$inferSelect, email: string): Employee {
+    return {
+        id: row.id,
+        name: row.name,
+        surname: row.surname,
+        password: "",
+        userId: row.userId ?? null,
+        email,
+        startDate: (row as any).startDate ?? null, // ensure fields exist in schema
+        endDate: (row as any).endDate ?? null,
+        updatedAt: row.updatedAt.toISOString(),
+        createdAt: row.createdAt.toISOString(),
+    };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
-        // First try admin; if it throws, we’ll treat caller as non-admin.
+        // Try admin first; fall back to regular user
         let isAdmin = false;
         let caller: Awaited<ReturnType<typeof requireUser>> | null = null;
 
@@ -24,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             caller = await requireAdmin(req);
             isAdmin = true;
         } catch {
-            caller = await requireUser(req); // authenticated but not admin
+            caller = await requireUser(req);
             isAdmin = false;
         }
 
@@ -33,13 +56,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const idParam = req.query.id;
 
             if (isAdmin) {
-                // Admin GET
+                // Admin GET by id
                 if (idParam && idParam !== "me") {
                     const id = Number(idParam);
                     if (!isPositiveInt(id)) return res.status(400).json({ error: "Invalid id" });
 
-                    const rows = await db.select().from(employees).where(eq(employees.id, id)).limit(1);
-                    const row = rows[0];
+                    const [row] = await db.select().from(employees).where(eq(employees.id, id)).limit(1);
                     if (!row) return res.status(404).json({ error: "Not found" });
 
                     let email = "";
@@ -48,48 +70,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         email = data.user?.email ?? "";
                     }
 
-                    return res.status(200).json({ id: row.id, name: row.name, surname: row.surname, userId: row.userId, email });
+                    const dto = toEmployeeDTO(row, email);
+                    return res.status(200).json(dto);
                 }
 
-                // list all
+                // Admin list all
                 const rows = await db.select().from(employees);
-                const result = await Promise.all(
+
+                // stitch emails (N calls; fine for small sets — optimize later if needed)
+                const result: Employee[] = await Promise.all(
                     rows.map(async (r) => {
                         let email = "";
                         if (r.userId) {
                             const { data } = await supaAdmin.auth.admin.getUserById(r.userId);
                             email = data.user?.email ?? "";
                         }
-                        return { ...r, email };
+                        return toEmployeeDTO(r, email);
                     })
                 );
+
                 return res.status(200).json({ employees: result });
             } else {
-                // Non-admin GET: only return own employee row
+                // Non-admin: only "me"
                 if (!caller) return res.status(401).json({ error: "Unauthorized" });
 
-                // if id=me or no id → self
-                if (!idParam || idParam === "me") {
-                    const rows = await db.select().from(employees).where(eq(employees.userId, caller.id)).limit(1);
-                    return res.status(200).json({
-                        isEmployee: rows.length > 0,
-                        employee: rows[0] ?? null,
-                    });
+                const [row] = await db.select().from(employees).where(eq(employees.userId, caller.id)).limit(1);
+
+                if (!row) {
+                    return res.status(200).json({ isEmployee: false, employee: null });
                 }
 
-                // Any other id is forbidden
-                return res.status(403).json({ error: "Forbidden" });
+                // caller token usually has email
+                const email = caller.email ?? "";
+                const dto = toEmployeeDTO(row, email);
+
+                return res.status(200).json({ isEmployee: true, employee: dto });
             }
         }
 
-        // From here on, admin-only mutations
+        // From here: admin-only mutations
         if (!isAdmin) return res.status(403).json({ error: "Admin only" });
 
         // ───────── POST (create) ─────────
         if (req.method === "POST") {
-            const { name, surname, email, password } = req.body ?? {};
+            const { name, surname, email, password, startDate, endDate } = req.body ?? {};
             if (!name?.trim() || !surname?.trim() || !email?.trim() || !password?.trim()) {
                 return res.status(400).json({ error: "Missing fields" });
+            }
+
+            if (!isValidDateRange(startDate, endDate)) {
+                return res.status(400).json({ error: "startDate must be <= endDate" });
             }
 
             const { data, error } = await supaAdmin.auth.admin.createUser({
@@ -107,24 +137,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     name: String(name).trim(),
                     surname: String(surname).trim(),
                     userId: data.user.id,
-                })
+                    ...(startDate ? { startDate: String(startDate) } : {}),
+                    ...(endDate ? { endDate: String(endDate) } : {}),
+                } as any)
                 .returning();
 
-            return res.status(201).json({ employee: row, userId: data.user.id });
+            const dto = toEmployeeDTO(row, String(email).trim());
+            return res.status(201).json({ employee: dto, userId: data.user.id });
         }
 
         // ───────── PUT (update) ─────────
         if (req.method === "PUT") {
-            const { id, name, surname, email, password } = req.body ?? {};
+            const { id, name, surname, email, password, startDate, endDate } = req.body ?? {};
             if (!isPositiveInt(Number(id)) || !name?.trim() || !surname?.trim() || !email?.trim()) {
                 return res.status(400).json({ error: "Missing fields" });
             }
+
+            if (!isValidDateRange(startDate, endDate)) {
+                return res.status(400).json({ error: "startDate must be <= endDate" });
+            }
+
             const empId = Number(id);
 
-            const rows = await db.select().from(employees).where(eq(employees.id, empId)).limit(1);
-            const row = rows[0];
+            const [row] = await db.select().from(employees).where(eq(employees.id, empId)).limit(1);
             if (!row) return res.status(404).json({ error: "Not found" });
 
+            // update auth user if linked
             if (row.userId) {
                 const updates: { email?: string; password?: string } = { email: String(email).trim() };
                 if (password?.trim()) updates.password = String(password).trim();
@@ -132,9 +170,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (error) return res.status(400).json({ error: error.message });
             }
 
+            // update employee table
             await db
                 .update(employees)
-                .set({ name: String(name).trim(), surname: String(surname).trim() })
+                .set({
+                    name: String(name).trim(),
+                    surname: String(surname).trim(),
+                    ...(startDate !== undefined ? { startDate: startDate ? String(startDate) : null } : {}),
+                    ...(endDate !== undefined ? { endDate: endDate ? String(endDate) : null } : {}),
+                } as any)
                 .where(eq(employees.id, empId));
 
             return res.status(200).json({ ok: true });

@@ -9,7 +9,7 @@ export default function AdminSidebar() {
         if (error) console.error("Error signing out:", error.message);
     }
 
-    const isActive = (path: string) => (loc.pathname === path ? "border-b font-bold" : "opacity-80 hover:opacity-100");
+    const isActive = (paths: string[]) => (paths.includes(loc.pathname) ? "border-b font-bold" : "opacity-80 hover:opacity-100");
 
     return (
         <aside className="sidebar bg-light px-16 pt-8 flex flex-col items-start gap-y-4 min-w-64">
@@ -22,7 +22,7 @@ export default function AdminSidebar() {
             </button>
 
             <nav className="flex flex-col gap-y-4 py-8 text-sm">
-                <Link to="/admin" className={isActive("/admin") || isActive("/admin/add-user")}>
+                <Link to="/admin" className={isActive(["/admin", "/admin/add-user", "/admin/employee/:id/edit"])}>
                     Employees
                 </Link>
                 <a className="pointer-events-none opacity-50">Settings</a>

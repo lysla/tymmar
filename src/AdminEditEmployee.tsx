@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { supabase } from "./supabase";
 import AdminFormEmployee, { type FormEmployeeValues } from "./AdminFormEmployee";
+import type { Employee } from "./types/db";
 
 export default function AdminEditEmployee() {
     const { id } = useParams();
@@ -15,13 +16,13 @@ export default function AdminEditEmployee() {
             try {
                 const { data } = await supabase.auth.getSession();
                 const token = data.session?.access_token;
-                const r = await fetch(`/api/admin/employees?id=${encodeURIComponent(String(id))}`, {
+                const r = await fetch(`/api/employees?id=${encodeURIComponent(String(id))}`, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!active) return;
                 if (!r.ok) return setState("error");
                 const json = await r.json();
-                setInitial({ name: json.name, surname: json.surname, email: json.email, password: "" });
+                setInitial(json as Employee);
                 setState("ok");
             } catch {
                 setState("error");
@@ -35,7 +36,7 @@ export default function AdminEditEmployee() {
     async function handleUpdate(values: FormEmployeeValues) {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        const r = await fetch("/api/admin/employees", {
+        const r = await fetch("/api/employees", {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ id: Number(id), ...values }),
@@ -60,7 +61,7 @@ export default function AdminEditEmployee() {
                         <span>Could not load employee.</span>
                     </p>
                 )}
-                {state === "ok" && initial && <AdminFormEmployee mode="edit" initial={initial} onSubmit={handleUpdate} showPassword={false} submitLabel="Save changes" />}
+                {state === "ok" && initial && <AdminFormEmployee mode="edit" initial={initial} onSubmit={handleUpdate} submitLabel="Save changes" />}
             </div>
         </>
     );

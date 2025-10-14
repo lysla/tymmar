@@ -1,24 +1,18 @@
 import { useState } from "react";
+import type { Employee } from "./types/db";
 
-export type FormEmployeeValues = {
-    name: string;
-    surname: string;
-    email: string;
-    password?: string;
-};
+export type FormEmployeeValues = Partial<Employee>;
 
 export default function AdminFormEmployee({
     initial,
     mode, // "create" | "edit"
     onSubmit,
     submitLabel = mode === "create" ? "Add user" : "Save changes",
-    showPassword = mode === "create",
 }: {
     initial: FormEmployeeValues;
     mode: "create" | "edit";
     onSubmit: (values: FormEmployeeValues) => Promise<void>;
     submitLabel?: string;
-    showPassword?: boolean;
 }) {
     const [values, setValues] = useState<FormEmployeeValues>(initial);
     const [errors, setErrors] = useState<{
@@ -39,7 +33,7 @@ export default function AdminFormEmployee({
         if (!values.name?.trim()) e.name = "Name is required";
         if (!values.surname?.trim()) e.surname = "Surname is required";
         if (!values.email?.trim()) e.email = "Email is required";
-        if (showPassword && !values.password?.trim()) e.password = "Password is required";
+        if (mode == "create" && !values.password?.trim()) e.password = "Password is required";
         setErrors(e);
         return Object.keys(e).length === 0;
     }
@@ -53,10 +47,12 @@ export default function AdminFormEmployee({
         setLoading(true);
         try {
             await onSubmit({
-                name: values.name.trim(),
-                surname: values.surname.trim(),
-                email: values.email.trim(),
+                name: values.name?.trim(),
+                surname: values.surname?.trim(),
+                email: values.email?.trim(),
                 password: values.password?.trim() || undefined,
+                startDate: values.startDate || null,
+                endDate: values.endDate || null,
             });
             setStatus(mode === "create" ? "User created." : "Changes saved.");
         } catch (err) {
@@ -99,17 +95,25 @@ export default function AdminFormEmployee({
                 )}
             </label>
 
-            {showPassword && (
-                <label className="grid gap-1">
-                    <span className="text-sm">Password *</span>
-                    <input className="input" type="password" value={values.password ?? ""} onChange={(e) => set("password", e.target.value)} placeholder="Password" disabled={loading} />
-                    {errors.password && (
-                        <p className="error">
-                            <span>{errors.password}</span>
-                        </p>
-                    )}
-                </label>
-            )}
+            <label className="grid gap-1">
+                <span className="text-sm">Password *</span>
+                <input className="input" type="password" value={values.password ?? ""} onChange={(e) => set("password", e.target.value)} placeholder="Password" disabled={loading} />
+                {errors.password && (
+                    <p className="error">
+                        <span>{errors.password}</span>
+                    </p>
+                )}
+            </label>
+
+            <label className="grid gap-1">
+                <span className="text-sm">Start date</span>
+                <input type="date" className="input" value={values.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} placeholder="YYYY-MM-DD" disabled={loading} />
+            </label>
+
+            <label className="grid gap-1">
+                <span className="text-sm">End date</span>
+                <input type="date" className="input" value={values.endDate ?? ""} onChange={(e) => set("endDate", e.target.value)} placeholder="YYYY-MM-DD" disabled={loading} />
+            </label>
 
             <div className="flex flex-col gap-y-3 pt-2 mr-auto">
                 <button className="button" disabled={loading}>
