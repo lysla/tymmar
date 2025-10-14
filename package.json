@@ -8,6 +8,7 @@
         "build": "tsc -b && vite build",
         "lint": "eslint .",
         "preview": "vite preview",
+        "vercel": "vercel dev --local-config vercel.local.json",
         "trace-vercel": "node --trace-deprecation ./node_modules/.bin/vercel dev"
     },
     "dependencies": {

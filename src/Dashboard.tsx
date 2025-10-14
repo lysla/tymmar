@@ -129,6 +129,7 @@ export default function Dashboard() {
             try {
                 setLoadingWeek(true);
                 setWeekErr(null);
+                setAiMsg(null);
                 const token = await getAccessToken();
                 const { from, to } = weekRangeISO(weekStart);
                 const r = await fetch(`/api/hours?from=${from}&to=${to}`, {
@@ -243,12 +244,14 @@ export default function Dashboard() {
             );
 
             // Ask AI
+            const mode = /\b(missing|only\s+missing|don['’]t\s+change|keep\s+existing)\b/i.test(aiCmd) ? "fill-missing" : "overwrite-week";
             const { suggestions, rationale } = await askAIForHours({
                 command: aiCmd || "Fill a normal week based on expected hours.",
                 weekStart: weekStart.toISOString().slice(0, 10),
                 expectedByDay: [...expectedByDay],
                 entries: currentEntries,
                 allowedDates: weekDatesISO, // ← add this
+                mode,
                 token,
             });
 
@@ -272,7 +275,8 @@ export default function Dashboard() {
                 return next;
             });
 
-            setAiMsg(rationale || `Applied ${filtered.length} change(s).`);
+            console.debug(rationale || `Applied ${filtered.length} change(s).`);
+            //setAiMsg(rationale || `Applied ${filtered.length} change(s).`);
             setAiCmd("");
         } catch (e: any) {
             setAiMsg(e?.message || "AI failed");
@@ -405,7 +409,20 @@ export default function Dashboard() {
                                 <img src="/images/sparkes.svg" alt="" className="inline-block mr-2 h-5" /> Feeling lazy? Just ask tymmar to fill your hours!
                             </p>
                             <div className="flex items-center gap-2">
-                                <input type="text" className="input" placeholder='e.g. "Fill Mon–Fri with normal hours, mark Wed sick"' value={aiCmd} onChange={(e) => setAiCmd(e.target.value)} disabled={aiBusy || isClosed} />
+                                <input
+                                    type="text"
+                                    className="input"
+                                    placeholder='e.g. "Fill Mon–Fri with normal hours, mark Wed sick"'
+                                    value={aiCmd}
+                                    onChange={(e) => setAiCmd(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey && !aiBusy && !isClosed) {
+                                            e.preventDefault();
+                                            void handleAIApply();
+                                        }
+                                    }}
+                                    disabled={aiBusy || isClosed}
+                                />
                                 <button className="button [ whitespace-nowrap ]" onClick={handleAIApply} disabled={aiBusy || isClosed}>
                                     {aiBusy ? "Thinking…" : "↲"}
                                 </button>
