@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
-import type { Employee } from "../types/db";
+import type { Employee } from "../types";
 
 type EmployeeValue = {
     status: "idle" | "loading" | "ok" | "missing" | "error";

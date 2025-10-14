@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { addDays, getMonday, toISO, weekRangeISO } from "../helpers";
 import { shallowEqualHours } from "../helpers";
-import { fetchSettings, fetchWeek, saveWeek, patchPeriod, type Settings, type PeriodInfo, type EntriesMap } from "../services/apiClient";
-import { askAIForHours } from "../api";
+import { askAIForHours, fetchSettings, fetchWeek, saveWeek, patchPeriod, type Settings, type PeriodInfo, type EntriesMap } from "../services";
 
 export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
     // week state

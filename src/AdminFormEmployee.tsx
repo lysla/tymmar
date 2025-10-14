@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Employee } from "./types/db";
+import type { Employee } from "./types";
 
 export type FormEmployeeValues = Partial<Employee>;
 

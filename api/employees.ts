@@ -7,7 +7,7 @@ import { inArray, eq } from "drizzle-orm";
 import { db } from "./_db";
 import { employees } from "../db/schema";
 import { requireAdmin, requireUser } from "./_auth";
-import type { Employee } from "../src/types/db"; //
+import type { Employee } from "../src/types";
 
 const supaAdmin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { supabase } from "./supabase";
 import AdminFormEmployee, { type FormEmployeeValues } from "./AdminFormEmployee";
-import type { Employee } from "./types/db";
+import type { Employee } from "./types";
 
 export default function AdminEditEmployee() {
     const { id } = useParams();

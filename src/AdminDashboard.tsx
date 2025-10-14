@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
 import { Link } from "react-router";
-import type { Employee } from "./types/db";
+import type { Employee } from "./types";
 
 export default function AdminDashboard() {
     const [list, setList] = useState<Employee[]>([]);
