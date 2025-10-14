@@ -1,28 +1,44 @@
+// src/hooks/useWeekData.ts
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { addDays, getMonday, toISO, weekRangeISO } from "../helpers";
 import { shallowEqualHours } from "../helpers";
 import { askAIForHours, fetchSettings, fetchWeek, saveWeek, patchPeriod, type Settings, type PeriodInfo, type EntriesMap } from "../services";
 
 export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
-    // week state
+    // ───────────────── week state ─────────────────
     const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+    const weekStartISO = useMemo(() => toISO(weekStart), [weekStart]);
+    const { from, to } = useMemo(() => weekRangeISO(weekStart), [weekStart]);
+
     const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
     const weekDatesISO = useMemo(() => days.map(toISO), [days]);
 
-    // settings
+    const jumpToWeek = useCallback((mondayISO: string) => {
+        // expects a Monday in YYYY-MM-DD; parent component should ensure it's a Monday
+        setWeekStart(new Date(`${mondayISO}T00:00:00`));
+    }, []);
+
+    const prevWeek = useCallback(() => {
+        setWeekStart((cur) => addDays(cur, -7));
+    }, []);
+    const nextWeek = useCallback(() => {
+        setWeekStart((cur) => addDays(cur, 7));
+    }, []);
+
+    // ───────────────── settings ─────────────────
     const [settings, setSettings] = useState<Settings | null>(null);
     const expectedByDay = useMemo(() => {
         if (!settings) return [8, 8, 8, 8, 8, 0, 0] as const;
         return [settings.mon, settings.tue, settings.wed, settings.thu, settings.fri, settings.sat, settings.sun] as const;
     }, [settings]);
 
-    // data
+    // ───────────────── data ─────────────────
     const [period, setPeriod] = useState<PeriodInfo | null>(null);
     const [entries, setEntries] = useState<EntriesMap>({});
     const [loadingWeek, setLoadingWeek] = useState(true);
     const [weekErr, setWeekErr] = useState<string | null>(null);
 
-    // drafts
+    // ───────────────── drafts ─────────────────
     const hoursView = useMemo(() => {
         const obj: Record<string, number> = {};
         for (const d of weekDatesISO) obj[d] = entries[d]?.totalHours ?? 0;
@@ -49,10 +65,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
         setHoursDraft((h) => ({ ...h, [k]: v }));
     }, []);
 
-    const prevWeek = useCallback(() => setWeekStart(addDays(weekStart, -7)), [weekStart]);
-    const nextWeek = useCallback(() => setWeekStart(addDays(weekStart, 7)), [weekStart]);
-
-    // load settings once
+    // ───────────────── load settings once ─────────────────
     useEffect(() => {
         let active = true;
         (async () => {
@@ -69,14 +82,13 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
         };
     }, [getAccessToken]);
 
-    // load week
+    // ───────────────── load week ─────────────────
     const reloadWeek = useCallback(async () => {
         const token = await getAccessToken();
-        const { from, to } = weekRangeISO(weekStart);
         const json = await fetchWeek(from, to, token);
         setPeriod(json.period);
         setEntries(json.entries || {});
-    }, [getAccessToken, weekStart]);
+    }, [getAccessToken, from, to]);
 
     useEffect(() => {
         let active = true;
@@ -84,6 +96,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
             try {
                 setLoadingWeek(true);
                 setWeekErr(null);
+                setAiMsg(null);
                 await reloadWeek();
             } catch (e: any) {
                 if (active) setWeekErr(e?.message || "Failed to load week");
@@ -96,7 +109,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
         };
     }, [reloadWeek]);
 
-    // actions
+    // ───────────────── actions ─────────────────
     const [saving, setSaving] = useState(false);
     const [closing, setClosing] = useState(false);
 
@@ -105,7 +118,11 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
             setSaving(true);
             const token = await getAccessToken();
             await saveWeek(
-                weekDatesISO.map((k) => ({ date: k, totalHours: Number(hoursDraft[k] ?? 0), type: "work" as const })),
+                weekDatesISO.map((k) => ({
+                    date: k,
+                    totalHours: Number(hoursDraft[k] ?? 0),
+                    type: "work" as const,
+                })),
                 token
             );
             await reloadWeek();
@@ -118,14 +135,14 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
         try {
             setClosing(true);
             const token = await getAccessToken();
-            await patchPeriod(isClosed ? "reopen" : "close", toISO(weekStart), token);
+            await patchPeriod(isClosed ? "reopen" : "close", weekStartISO, token);
             await reloadWeek();
         } finally {
             setClosing(false);
         }
-    }, [getAccessToken, isClosed, reloadWeek, weekStart]);
+    }, [getAccessToken, isClosed, weekStartISO, reloadWeek]);
 
-    // AI
+    // ───────────────── AI ─────────────────
     const [aiCmd, setAiCmd] = useState("");
     const [aiBusy, setAiBusy] = useState(false);
     const [aiMsg, setAiMsg] = useState<string | null>(null);
@@ -136,12 +153,26 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
             setAiMsg(null);
 
             const token = await getAccessToken();
+
+            // only allow edits for the currently visible week
             const weekSet = new Set(weekDatesISO);
-            const currentEntries = Object.fromEntries(weekDatesISO.map((d) => [d, { totalHours: Number(hoursDraft[d] ?? 0), type: (entries[d]?.type ?? "work") as "work" | "sick" | "time_off" }]));
+
+            // current entries (for type fallback/context)
+            const currentEntries = Object.fromEntries(
+                weekDatesISO.map((d) => [
+                    d,
+                    {
+                        totalHours: Number(hoursDraft[d] ?? 0),
+                        type: (entries[d]?.type ?? "work") as "work" | "sick" | "time_off",
+                    },
+                ])
+            );
+
             const mode = /\b(missing|only\s+missing|don['’]t\s+change|keep\s+existing)\b/i.test(aiCmd) ? "fill-missing" : "overwrite-week";
+
             const { suggestions, rationale } = await askAIForHours({
                 command: aiCmd || "Fill a normal week based on expected hours.",
-                weekStart: toISO(weekStart),
+                weekStart: weekStartISO,
                 expectedByDay: [...expectedByDay],
                 entries: currentEntries,
                 allowedDates: weekDatesISO,
@@ -149,7 +180,12 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
                 token,
             });
 
-            const filtered = suggestions.filter((s) => weekSet.has(s.date)).map((s) => ({ date: s.date, totalHours: Math.max(0, Math.min(24, Number(s.totalHours || 0))) }));
+            const filtered = suggestions
+                .filter((s) => weekSet.has(s.date))
+                .map((s) => ({
+                    date: s.date,
+                    totalHours: Math.max(0, Math.min(24, Number(s.totalHours || 0))),
+                }));
 
             if (filtered.length === 0) {
                 setAiMsg("AI returned no applicable changes for this week.");
@@ -164,21 +200,31 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
 
             setAiCmd("");
             if (rationale) {
+                // optional toast/log
+                // setAiMsg(rationale);
+                // eslint-disable-next-line no-console
                 console.debug("AI rationale:", rationale);
-                //setAiMsg(rationale);
             }
         } catch (e: any) {
             setAiMsg(e?.message || "AI failed");
         } finally {
             setAiBusy(false);
         }
-    }, [aiCmd, entries, expectedByDay, getAccessToken, hoursDraft, weekDatesISO, weekStart]);
+    }, [aiCmd, entries, expectedByDay, getAccessToken, hoursDraft, weekDatesISO, weekStartISO]);
 
     return {
-        // state
+        // week navigation & range
         weekStart,
+        weekStartISO,
+        from,
+        to,
         days,
         weekDatesISO,
+        jumpToWeek,
+        prevWeek,
+        nextWeek,
+
+        // settings/data/derived
         settings,
         expectedByDay,
         period,
@@ -189,23 +235,23 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
         weekTotal,
         weekExpected,
         weekPct,
+
+        // loading/error
         loadingWeek,
         weekErr,
 
-        // ai
+        // field/edit helpers
+        setVal,
+        handleSaveWeek,
+        handleCloseOrReopen,
+        saving,
+        closing,
+
+        // AI
         aiCmd,
         setAiCmd,
         aiBusy,
         aiMsg,
         handleAIApply,
-
-        // actions
-        setVal,
-        prevWeek,
-        nextWeek,
-        handleSaveWeek,
-        handleCloseOrReopen,
-        saving,
-        closing,
     };
 }

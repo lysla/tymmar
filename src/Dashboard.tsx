@@ -1,7 +1,7 @@
+// src/Dashboard.tsx
 import { useAuth } from "./context/AuthContext";
 import { useEmployee } from "./context/EmployeeContext";
 import { useWeekData } from "./hooks/useWeekData";
-import { weekRangeISO } from "./helpers";
 import WeekNavigator from "./components/WeekNavigator";
 import WeekGrid from "./components/WeekGrid";
 import AIComposer from "./components/AIComposer";
@@ -12,15 +12,16 @@ export default function Dashboard() {
     const { status, employee, refetch } = useEmployee();
 
     const d = useWeekData(getAccessToken);
-    const { from, to } = weekRangeISO(d.weekStart);
 
-    if (status === "idle" || status === "loading")
+    // auth/employee states
+    if (status === "idle" || status === "loading") {
         return (
             <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
             </div>
         );
-    if (status === "error")
+    }
+    if (status === "error") {
         return (
             <div>
                 <h2>Something went wrong</h2>
@@ -29,7 +30,8 @@ export default function Dashboard() {
                 </button>
             </div>
         );
-    if (status === "missing")
+    }
+    if (status === "missing") {
         return (
             <div>
                 <h2>Account not configured</h2>
@@ -39,6 +41,7 @@ export default function Dashboard() {
                 </button>
             </div>
         );
+    }
 
     return (
         <>
@@ -53,14 +56,17 @@ export default function Dashboard() {
                 </header>
 
                 <div className="bg-white mt-8 p-8">
+                    {/* closed badge */}
                     {!d.loadingWeek && !d.weekErr && d.period?.closed && (
                         <p className="text-center error mb-4">
                             <span>This period is closed.</span>
                         </p>
                     )}
 
-                    <WeekNavigator from={new Date(from).toLocaleDateString("en-GB")} to={new Date(to).toLocaleDateString("en-GB")} onPrev={d.prevWeek} onNext={d.nextWeek} disabled={d.loadingWeek} />
+                    {/* week navigator (includes calendar jump) */}
+                    <WeekNavigator from={d.from} to={d.to} weekStartISO={d.weekStartISO} onPrev={d.prevWeek} onNext={d.nextWeek} onJump={d.jumpToWeek} disabled={d.loadingWeek} />
 
+                    {/* weekly totals */}
                     {!d.loadingWeek && !d.weekErr && (
                         <>
                             <div className="flex items-end justify-center mt-4">
@@ -76,6 +82,7 @@ export default function Dashboard() {
                         </>
                     )}
 
+                    {/* loading/error */}
                     {d.loadingWeek && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
                     {d.weekErr && !d.loadingWeek && (
                         <p className="py-6 text-center error">
@@ -83,10 +90,13 @@ export default function Dashboard() {
                         </p>
                     )}
 
+                    {/* grid */}
                     {!d.loadingWeek && !d.weekErr && <WeekGrid days={d.days} expectedByDay={d.expectedByDay} values={d.hoursDraft} onChange={d.setVal} disabled={d.isClosed} />}
 
+                    {/* AI composer */}
                     {!d.loadingWeek && !d.weekErr && <AIComposer value={d.aiCmd} setValue={d.setAiCmd} busy={d.aiBusy} closed={d.isClosed} message={d.aiMsg} onApply={d.handleAIApply} />}
 
+                    {/* unsaved edits */}
                     {!d.loadingWeek && !d.weekErr && !d.isClosed && d.isDirty && (
                         <div className="flex items-center justify-end mt-8 text-xs text-secondary">
                             <p>There are unsaved edits! Remember to save!</p>
@@ -99,6 +109,7 @@ export default function Dashboard() {
                 </footer>
             </div>
 
+            {/* floating toolbar */}
             {!d.loadingWeek && <FloatingToolbar showSave={!d.isClosed} onSave={d.handleSaveWeek} saving={d.saving} onToggleClose={d.handleCloseOrReopen} closing={d.closing} isClosed={d.isClosed} disabled={d.loadingWeek} />}
         </>
     );

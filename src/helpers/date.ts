@@ -6,6 +6,13 @@ export function getMonday(d = new Date()) {
     m.setDate(d.getDate() + diff);
     return m;
 }
+export function getMondayISO(dateISO: string): string {
+    const d = new Date(dateISO + "T00:00:00Z");
+    const day = d.getUTCDay(); // 0 Sun .. 6 Sat
+    const diff = (day === 0 ? -6 : 1) - day;
+    d.setUTCDate(d.getUTCDate() + diff);
+    return d.toISOString().slice(0, 10);
+}
 export function addDays(date: Date, n: number) {
     const d = new Date(date);
     d.setDate(date.getDate() + n);
