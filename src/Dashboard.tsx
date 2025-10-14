@@ -11,7 +11,10 @@ export default function Dashboard() {
     const { signOut, getAccessToken } = useAuth();
     const { status, employee, refetch } = useEmployee();
 
-    const d = useWeekData(getAccessToken);
+    const d = useWeekData(getAccessToken, {
+        startDateISO: employee?.startDate ?? undefined,
+        endDateISO: employee?.endDate ?? undefined,
+    });
 
     // auth/employee states
     if (status === "idle" || status === "loading") {
@@ -58,8 +61,14 @@ export default function Dashboard() {
                 <div className="bg-white mt-8 p-8">
                     <div className="flex items-start gap-x-16 pb-8 border-b border-light">
                         <div className="w-auto">
-                            {/* week navigator (includes calendar jump) */}
-                            <WeekNavigator weekStartISO={d.weekStartISO} onJump={d.jumpToWeek} disabled={d.loadingWeek} />
+                            <WeekNavigator
+                                weekStartISO={d.weekStartISO}
+                                onJump={d.jumpToWeek}
+                                disabled={d.loadingWeek}
+                                // (navigator itself already uses these to disable dates)
+                                startDateISO={employee?.startDate ?? undefined}
+                                endDateISO={employee?.endDate ?? undefined}
+                            />
                         </div>
                         <div className="w-auto grow">
                             {/* closed badge */}
