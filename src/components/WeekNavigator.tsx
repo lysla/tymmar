@@ -1,45 +1,57 @@
 // src/components/WeekNavigator.tsx
-import { getMondayISO } from "../helpers"; // or from "../helpers" if you barrel-export
+import { useMemo } from "react";
+import { DayPicker } from "react-day-picker";
+import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
+import type { Interval } from "date-fns";
+import { enGB } from "date-fns/locale";
+import { getMonday, toISO } from "../helpers";
 
 export default function WeekNavigator({
-    from,
-    to,
     weekStartISO,
-    onPrev,
-    onNext,
-    onJump, // receives a monday ISO string
+    onJump, // receives monday ISO (YYYY-MM-DD)
     disabled,
 }: {
-    from: string; // e.g. "2025-10-06"
-    to: string; // e.g. "2025-10-12"
     weekStartISO: string; // current Monday, "YYYY-MM-DD"
-    onPrev: () => void;
-    onNext: () => void;
     onJump: (mondayISO: string) => void;
     disabled?: boolean;
 }) {
-    function handlePick(dateISO: string) {
-        if (!dateISO) return;
-        const monday = getMondayISO(dateISO); // snap selection to its Monday
-        onJump(monday);
+    // Selected Monday as Date
+    const monday = parseISO(weekStartISO);
+
+    // Compute full selected week range (Mon..Sun)
+    const weekInterval: Interval = useMemo(() => {
+        const start = startOfWeek(monday, { weekStartsOn: 1 }); // Mon
+        const end = endOfWeek(monday, { weekStartsOn: 1 }); // Sun
+        return { start, end };
+    }, [monday]);
+
+    function handleSelect(day?: Date) {
+        if (!day) return;
+        const mondayISO = toISO(getMonday(day)); // snap to that week’s Monday
+        onJump(mondayISO);
     }
 
     return (
-        <div className="flex items-center justify-center gap-3 flex-wrap">
-            <button className="text-primary font-bold" onClick={onPrev} disabled={disabled} aria-label="Previous week">
-                &lt;
-            </button>
-
-            <p className="mx-1">
-                {new Date(from).toLocaleDateString("en-GB")} — {new Date(to).toLocaleDateString("en-GB")}
-            </p>
-
-            <button className="text-primary font-bold" onClick={onNext} disabled={disabled} aria-label="Next week">
-                &gt;
-            </button>
-
-            {/* Date picker */}
-            <input type="date" className="input" value={weekStartISO} onChange={(e) => handlePick(e.target.value)} disabled={disabled} title="Pick a date to jump to its week" />
+        <div>
+            {/* Inline calendar */}
+            <div className={disabled ? "pointer-events-none opacity-60" : ""}>
+                <DayPicker
+                    mode="single"
+                    defaultMonth={monday}
+                    selected={monday}
+                    onSelect={handleSelect}
+                    locale={enGB} // week starts on Monday via locale
+                    showOutsideDays
+                    modifiers={{
+                        // highlight the whole selected week
+                        selectedWeek: (day) => isWithinInterval(day, weekInterval),
+                    }}
+                    modifiersClassNames={{
+                        selectedWeek: "bg-tertiary", // tweak to your design system
+                    }}
+                    captionLayout="dropdown"
+                />
+            </div>
         </div>
     );
 }

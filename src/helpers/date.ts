@@ -1,29 +1,30 @@
-export function getMonday(d = new Date()) {
-    const day = d.getDay(); // 0=Sun
-    const diff = (day === 0 ? -6 : 1) - day;
-    const m = new Date(d);
-    m.setHours(0, 0, 0, 0);
-    m.setDate(d.getDate() + diff);
-    return m;
+import { startOfWeek, endOfWeek, addDays as dfAddDays, format, parseISO } from "date-fns";
+
+// Monday as first day of week (weekStartsOn: 1)
+export function getMonday(d: Date = new Date()): Date {
+    return startOfWeek(d, { weekStartsOn: 1 });
 }
+
 export function getMondayISO(dateISO: string): string {
-    const d = new Date(dateISO + "T00:00:00Z");
-    const day = d.getUTCDay(); // 0 Sun .. 6 Sat
-    const diff = (day === 0 ? -6 : 1) - day;
-    d.setUTCDate(d.getUTCDate() + diff);
-    return d.toISOString().slice(0, 10);
+    const d = parseISO(dateISO); // safe parse YYYY-MM-DD
+    return format(getMonday(d), "yyyy-MM-dd");
 }
-export function addDays(date: Date, n: number) {
-    const d = new Date(date);
-    d.setDate(date.getDate() + n);
-    return d;
+
+export function addDays(date: Date, n: number): Date {
+    return dfAddDays(date, n);
 }
-export function toISO(d: Date) {
-    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10);
+
+export function toISO(d: Date): string {
+    return format(d, "yyyy-MM-dd");
 }
-export function weekRangeISO(weekStart: Date) {
-    return { from: toISO(weekStart), to: toISO(addDays(weekStart, 6)) };
+
+export function weekRangeISO(weekStart: Date): { from: string; to: string } {
+    return {
+        from: format(weekStart, "yyyy-MM-dd"),
+        to: format(endOfWeek(weekStart, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+    };
 }
-export function fmtDayLabel(d: Date) {
-    return d.toLocaleDateString(undefined, { weekday: "short" });
+
+export function fmtDayLabel(d: Date): string {
+    return format(d, "EEE"); // Mon, Tue, ...
 }

@@ -1,28 +1,22 @@
 // src/hooks/useWeekData.ts
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { addDays, getMonday, toISO, weekRangeISO } from "../helpers";
-import { shallowEqualHours } from "../helpers";
+import { addDays, getMonday, toISO, weekRangeISO, shallowEqualHours } from "../helpers";
 import { askAIForHours, fetchSettings, fetchWeek, saveWeek, patchPeriod, type Settings, type PeriodInfo, type EntriesMap } from "../services";
 
 export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
     // ───────────────── week state ─────────────────
     const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
     const weekStartISO = useMemo(() => toISO(weekStart), [weekStart]);
+
+    // internal range used for fetching
     const { from, to } = useMemo(() => weekRangeISO(weekStart), [weekStart]);
 
     const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
     const weekDatesISO = useMemo(() => days.map(toISO), [days]);
 
     const jumpToWeek = useCallback((mondayISO: string) => {
-        // expects a Monday in YYYY-MM-DD; parent component should ensure it's a Monday
+        // expects a Monday in YYYY-MM-DD
         setWeekStart(new Date(`${mondayISO}T00:00:00`));
-    }, []);
-
-    const prevWeek = useCallback(() => {
-        setWeekStart((cur) => addDays(cur, -7));
-    }, []);
-    const nextWeek = useCallback(() => {
-        setWeekStart((cur) => addDays(cur, 7));
     }, []);
 
     // ───────────────── settings ─────────────────
@@ -154,10 +148,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
 
             const token = await getAccessToken();
 
-            // only allow edits for the currently visible week
             const weekSet = new Set(weekDatesISO);
-
-            // current entries (for type fallback/context)
             const currentEntries = Object.fromEntries(
                 weekDatesISO.map((d) => [
                     d,
@@ -202,7 +193,6 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
             if (rationale) {
                 // optional toast/log
                 // setAiMsg(rationale);
-                // eslint-disable-next-line no-console
                 console.debug("AI rationale:", rationale);
             }
         } catch (e: any) {
@@ -216,13 +206,9 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>) {
         // week navigation & range
         weekStart,
         weekStartISO,
-        from,
-        to,
         days,
         weekDatesISO,
         jumpToWeek,
-        prevWeek,
-        nextWeek,
 
         // settings/data/derived
         settings,

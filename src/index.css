@@ -13,6 +13,36 @@
     --color-gray: #525252;
 }
 
+.rdp-root {
+    --rdp-day-height: 30px;
+    --rdp-day-width: 45px;
+    --rdp-day_button-height: 30px;
+    --rdp-day_button-width: 45px;
+    --rdp-nav-height: auto;
+    --rdp-accent-color: var(--color-primary);
+    --rdp-today-color: var(--color-secondary);
+}
+.rdp-button_next,
+.rdp-button_previous {
+    @apply hidden;
+}
+.rdp-day_button {
+    @apply text-sm;
+}
+.rdp-selected .rdp-day_button {
+    @apply border-none;
+}
+.rdp-selected {
+    @apply font-normal text-sm;
+}
+.rdp-caption_label {
+    @apply font-serif outline-none;
+    outline: none !important;
+}
+.rdp-caption_label > svg {
+    @apply ml-2;
+}
+
 html,
 body {
     @apply h-full text-dark;
@@ -90,12 +120,9 @@ body > div:first-child {
 .progress {
     @apply w-[60%] border border-primary flex;
 }
-.progress--alt {
-    @apply max-w-[200px];
-}
 .progress__bar {
-    @apply bg-primary h-[20px];
+    @apply bg-primary h-[10px];
 }
 .progress__bar--alt {
-    @apply h-[10px];
+    @apply h-[20px];
 }

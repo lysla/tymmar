@@ -56,41 +56,39 @@ export default function Dashboard() {
                 </header>
 
                 <div className="bg-white mt-8 p-8">
-                    {!d.loadingWeek && (
-                        <div className="flex items-start gap-x-16 border-b border-light">
-                            <div className="w-1/2">
-                                {/* closed badge */}
-                                {!d.weekErr && d.period?.closed && (
-                                    <p className="error mb-4">
-                                        <span>This period is closed.</span>
-                                    </p>
-                                )}
-
-                                {/* AI composer */}
-                                {!d.weekErr && <AIComposer value={d.aiCmd} setValue={d.setAiCmd} busy={d.aiBusy} closed={d.isClosed} message={d.aiMsg} onApply={d.handleAIApply} />}
-
-                                {/* weekly totals */}
-                                {!d.weekErr && (
-                                    <div className="py-8">
-                                        <div className="flex items-end">
-                                            <span className="progress progress--alt [ mr-2 ]" title={`${d.weekPct}%`}>
-                                                <span className="progress__bar progress__bar--alt" style={{ width: `${d.weekPct}%` }} />
-                                            </span>
-                                            <p className="text-xs text-primary leading-[1]">{d.weekPct}%</p>
-                                        </div>
-                                        <div className="flex items-center gap-x-8">
-                                            <div className="text-xs text-center mt-4 text-primary">Expected total hours: {d.weekExpected}</div>
-                                            <div className="text-xs text-center mt-4 text-dark">Registered: {d.weekTotal.toFixed(2)}</div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="w-1/2">
-                                {/* week navigator (includes calendar jump) */}
-                                <WeekNavigator from={d.from} to={d.to} weekStartISO={d.weekStartISO} onPrev={d.prevWeek} onNext={d.nextWeek} onJump={d.jumpToWeek} disabled={d.loadingWeek} />
-                            </div>
+                    <div className="flex items-start gap-x-16 pb-8 border-b border-light">
+                        <div className="w-auto">
+                            {/* week navigator (includes calendar jump) */}
+                            <WeekNavigator weekStartISO={d.weekStartISO} onJump={d.jumpToWeek} disabled={d.loadingWeek} />
                         </div>
-                    )}
+                        <div className="w-auto grow">
+                            {/* closed badge */}
+                            {!d.weekErr && d.period?.closed && (
+                                <p className="error mb-4">
+                                    <span>This period is closed.</span>
+                                </p>
+                            )}
+
+                            {/* AI composer */}
+                            {!d.weekErr && <AIComposer value={d.aiCmd} setValue={d.setAiCmd} busy={d.aiBusy} closed={d.isClosed || d.loadingWeek} message={d.aiMsg} onApply={d.handleAIApply} />}
+
+                            {/* weekly totals */}
+                            {!d.weekErr && !d.loadingWeek && (
+                                <div className="py-8">
+                                    <div className="flex items-end">
+                                        <span className="progress progress--alt [ mr-2 ]" title={`${d.weekPct}%`}>
+                                            <span className="progress__bar progress__bar--alt" style={{ width: `${d.weekPct}%` }} />
+                                        </span>
+                                        <p className="text-xs text-primary leading-[1]">{d.weekPct}%</p>
+                                    </div>
+                                    <div className="flex items-center gap-x-8">
+                                        <div className="text-xs text-center mt-4 text-primary">Expected total hours: {d.weekExpected}</div>
+                                        <div className="text-xs text-center mt-4 text-dark">Registered: {d.weekTotal.toFixed(2)}</div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
                     {/* loading/error */}
                     {d.loadingWeek && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
