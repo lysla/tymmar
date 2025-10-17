@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
-
-type Employee = { id: number; name: string; surname: string; userId: string };
+import type { Employee } from "../types";
 
 type EmployeeValue = {
     status: "idle" | "loading" | "ok" | "missing" | "error";
@@ -36,7 +35,7 @@ export function EmployeeProvider({ children }: { children: React.ReactNode }) {
                 fetchedRef.current = user.id;
                 return;
             }
-            const res = await fetch("/api/admin/employees?id=me", {
+            const res = await fetch("/api/employees?id=me", {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error("HTTP " + res.status);

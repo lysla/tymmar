@@ -21,7 +21,7 @@ export default function AdminSignIn() {
 
     return (
         <div className="w-full h-full bg-paper flex flex-col">
-            <header className="flex items-center justify-between px-16 pt-8">
+            <header className="flex items-center justify-center px-16 pt-8">
                 <div>
                     <Link to="/" className="logo-typo">
                         tymmar
@@ -34,9 +34,6 @@ export default function AdminSignIn() {
                 </div>
             </header>
             <div className="flex items-center justify-center grow px-16 pb-8 relative">
-                <div className="absolute left-0 w-1/2 flex items-end justify-center overflow-hidden">
-                    <img src="/images/ill-left.svg" alt="" className="-translate-x-1/5" />
-                </div>
                 <div className="relative z-10 bg-white w-[450px] p-8">
                     <h1 className="font-serif text-2xl text-center">Admin sign in</h1>
                     <p className="text-center text-sm py-4">Please enter your credentials to access the admin area</p>
@@ -50,9 +47,6 @@ export default function AdminSignIn() {
                             </p>
                         )}
                     </form>
-                </div>
-                <div className="absolute right-0 w-1/2 flex items-end justify-center overflow-hidden">
-                    <img src="/images/ill-right.svg" alt="" className="translate-x-1/5" />
                 </div>
             </div>
             <footer className="px-16 pt-8 pb-16">

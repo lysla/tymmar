@@ -1,17 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
 import { Link } from "react-router";
-
-type AdminEmployee = {
-    id: number;
-    name: string;
-    surname: string;
-    userId: string | null;
-    email: string;
-};
+import type { Employee } from "./types";
 
 export default function AdminDashboard() {
-    const [list, setList] = useState<AdminEmployee[]>([]);
+    const [list, setList] = useState<Employee[]>([]);
     const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
 
     // selection
@@ -33,12 +26,12 @@ export default function AdminDashboard() {
             try {
                 const { data } = await supabase.auth.getSession();
                 const token = data.session?.access_token;
-                const r = await fetch("/api/admin/employees", {
+                const r = await fetch("/api/employees", {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!active) return;
                 if (!r.ok) return setStatus("error");
-                const json = (await r.json()) as { employees: AdminEmployee[] };
+                const json = (await r.json()) as { employees: Employee[] };
                 setList(json.employees ?? []);
                 setStatus("ok");
             } catch {
@@ -75,7 +68,7 @@ export default function AdminDashboard() {
             const { data } = await supabase.auth.getSession();
             const token = data.session?.access_token;
 
-            const r = await fetch("/api/admin/employees", {
+            const r = await fetch("/api/employees", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
                 body: JSON.stringify({ ids }),
@@ -113,7 +106,7 @@ export default function AdminDashboard() {
             )}
 
             <div className="bg-white p-8 mt-8">
-                <div className="grid grid-cols-[auto_1fr_1fr_2fr_auto] gap-x-4 font-semibold pb-2">
+                <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-x-4 font-semibold pb-2">
                     <div className="th">
                         <div className="checkbox">
                             <input ref={selectAllRef} type="checkbox" id="cbListAll" checked={allChecked} onChange={toggleAll} disabled={list.length === 0} />
@@ -123,6 +116,7 @@ export default function AdminDashboard() {
                     <div className="th">Surname</div>
                     <div className="th">Name</div>
                     <div className="th">Email</div>
+                    <div className="th">Start date</div>
                     <div className="th">
                         <span className="opacity-0">Edit</span>
                     </div>
@@ -142,14 +136,15 @@ export default function AdminDashboard() {
                             const cbId = `cbList${e.id}`;
                             const checked = selected.has(e.id);
                             return (
-                                <div key={e.id} className="grid grid-cols-[auto_1fr_1fr_2fr_auto] gap-x-4 py-2 -mx-4 px-4 hover:bg-tertiary">
+                                <div key={e.id} className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-x-4 py-2 -mx-4 px-4 hover:bg-tertiary">
                                     <div className="checkbox">
                                         <input type="checkbox" id={cbId} checked={checked} onChange={toggleOne(e.id)} />
                                         <label htmlFor={cbId}></label>
                                     </div>
                                     <div>{e.surname}</div>
                                     <div>{e.name}</div>
-                                    <div className="text-gray">{e.email || <span>no email</span>}</div>
+                                    <div className="text-gray">{e.email}</div>
+                                    <div className="text-gray">{e.startDate ? new Date(e.startDate).toLocaleDateString("en-GB") : ""}</div>
                                     <div className="text-right">
                                         <Link className="link" to={`/admin/employee/${e.id}/edit`}>
                                             Edit

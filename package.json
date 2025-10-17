@@ -8,6 +8,7 @@
         "build": "tsc -b && vite build",
         "lint": "eslint .",
         "preview": "vite preview",
+        "vercel": "vercel dev --local-config vercel.local.json",
         "trace-vercel": "node --trace-deprecation ./node_modules/.bin/vercel dev"
     },
     "dependencies": {
@@ -15,10 +16,12 @@
         "@supabase/supabase-js": "^2.74.0",
         "@tailwindcss/vite": "^4.1.14",
         "ai": "^5.0.60",
+        "date-fns": "^4.1.0",
         "dotenv": "^17.2.3",
         "drizzle-orm": "^0.44.6",
         "postgres": "^3.4.7",
         "react": "^19.1.1",
+        "react-day-picker": "^9.11.1",
         "react-dom": "^19.1.1",
         "react-router": "^7.9.4",
         "tailwindcss": "^4.1.14"
