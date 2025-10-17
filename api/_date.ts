@@ -10,8 +10,9 @@ export function toISO(d: Date): string {
     return format(d, "yyyy-MM-dd");
 }
 
-export function getMondayISO(dateISO: string): string {
-    return toISO(getMonday(parseISO(dateISO)));
+export function getMondayISO(dateISO: string | Date): string {
+    const date = dateISO instanceof Date ? dateISO : parseISO(dateISO);
+    return toISO(getMonday(date));
 }
 
 export function addDaysISO(dateISO: string, n: number): string {

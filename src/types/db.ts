@@ -22,3 +22,9 @@ export type DayEntry = {
     projectId: number | null;
     note: string | null;
 };
+
+export type WeekSummary = {
+    monday: string; // YYYY-MM-DD (Monday)
+    daysWithEntries: number; // 0..7
+    closed: boolean;
+};

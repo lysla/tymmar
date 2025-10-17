@@ -1,9 +1,8 @@
-// src/hooks/useWeekData.ts
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { addDays, getMonday, toISO, weekRangeISO, clampMondayISO, isDateAllowed } from "../helpers";
-import { fetchSettings, patchPeriod, type Settings, type PeriodInfo, fetchWeek, replaceDayEntries, type EntriesByDate } from "../services";
-import { parseISO, startOfDay, isBefore, isAfter } from "date-fns";
-import type { DayEntry as DayEntryType, DayType } from "../types";
+import { fetchSettings, patchPeriod, fetchWeek, replaceDayEntries, fetchWeekSummaries, type Settings, type PeriodInfo, type EntriesByDate } from "../services";
+import { parseISO, startOfDay, isBefore, isAfter, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import type { DayEntry as DayEntryType, DayType, WeekSummary } from "../types";
 
 type DayEntry = Partial<DayEntryType>;
 
@@ -51,9 +50,11 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
             const monday = parseISO(clamped);
             const r = weekRangeISO(monday);
             const targetKey = `${r.from}|${r.to}`;
-            fetchedKeysRef.current.delete(targetKey); // force fresh fetch for that range
-            setLoadedKey(null); // show loading until hydrated
+            fetchedKeysRef.current.delete(targetKey);
+            setLoadedKey(null);
             setWeekStart(monday);
+            // also sync visible month to that week (so navigator month follows selection)
+            setVisibleMonth(startOfMonth(monday));
         },
         [startBound, endBound]
     );
@@ -62,9 +63,10 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         setWeekStart((cur) => {
             const nextMonday = parseISO(clampMondayISO(toISO(addDays(cur, -7)), startBound, endBound));
             const r = weekRangeISO(nextMonday);
-            const targetKey = `${r.from}|${r.to}`;
-            fetchedKeysRef.current.delete(targetKey);
+            fetchedKeysRef.current.delete(`${r.from}|${r.to}`);
             setLoadedKey(null);
+            // keep visible month aligned
+            setVisibleMonth(startOfMonth(nextMonday));
             return nextMonday;
         });
     }, [startBound, endBound]);
@@ -73,9 +75,9 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         setWeekStart((cur) => {
             const nextMonday = parseISO(clampMondayISO(toISO(addDays(cur, 7)), startBound, endBound));
             const r = weekRangeISO(nextMonday);
-            const targetKey = `${r.from}|${r.to}`;
-            fetchedKeysRef.current.delete(targetKey);
+            fetchedKeysRef.current.delete(`${r.from}|${r.to}`);
             setLoadedKey(null);
+            setVisibleMonth(startOfMonth(nextMonday));
             return nextMonday;
         });
     }, [startBound, endBound]);
@@ -226,16 +228,88 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
     const [saving, setSaving] = useState(false);
     const [closing, setClosing] = useState(false);
 
-    const invalidateCurrentRange = useCallback(() => {
-        fetchedKeysRef.current.delete(currentKey);
-        setLoadedKey(null);
-    }, [currentKey]);
+    // —— Month summaries (for calendar badges) ——
+    const [visibleMonth, setVisibleMonth] = useState<Date>(() => startOfMonth(weekStart));
+    useEffect(() => {
+        // keep visible month in sync when weekStart changes programmatically
+        setVisibleMonth((m) => m ?? startOfMonth(weekStart));
+    }, [weekStart]);
+
+    const allowedInterval = useMemo(() => {
+        const s = startBound ? parseISO(startBound) : null;
+        const e = endBound ? parseISO(endBound) : null;
+        return s || e ? { start: s ?? new Date(-8640000000000000), end: e ?? new Date(8640000000000000) } : null;
+    }, [startBound, endBound]);
+
+    const monthSpan = useMemo(() => {
+        const monthStart = startOfMonth(visibleMonth);
+        const monthEnd = endOfMonth(visibleMonth);
+        const spanFrom = startOfWeek(monthStart, { weekStartsOn: 1 });
+        const spanTo = endOfWeek(monthEnd, { weekStartsOn: 1 });
+
+        const clampFrom = allowedInterval ? (spanFrom < allowedInterval.start ? allowedInterval.start : spanFrom) : spanFrom;
+        const clampTo = allowedInterval ? (spanTo > allowedInterval.end ? allowedInterval.end : spanTo) : spanTo;
+
+        return { clampFrom, clampTo };
+    }, [visibleMonth, allowedInterval]);
+
+    const fromISO = useMemo(() => toISO(monthSpan.clampFrom), [monthSpan.clampFrom]);
+    const toISOstr = useMemo(() => toISO(monthSpan.clampTo), [monthSpan.clampTo]);
+    const summariesKey = `${fromISO}|${toISOstr}`;
+
+    const fetchedSummariesRef = useRef<Set<string>>(new Set());
+    const [loadedSummariesKey, setLoadedSummariesKey] = useState<string | null>(null);
+    const [fetchingSummaries, setFetchingSummaries] = useState(false);
+    const [summaries, setSummaries] = useState<Record<string, WeekSummary>>({});
+
+    const reloadSummaries = useCallback(async () => {
+        if (!boundsReady) return;
+        if (monthSpan.clampFrom > monthSpan.clampTo) {
+            setSummaries({});
+            setLoadedSummariesKey(summariesKey);
+            return;
+        }
+
+        if (fetchedSummariesRef.current.has(summariesKey)) {
+            setLoadedSummariesKey(summariesKey);
+            return;
+        }
+
+        setFetchingSummaries(true);
+        try {
+            const token = await getAccessToken();
+            const { summaries } = await fetchWeekSummaries(fromISO, toISOstr, token);
+            const map: Record<string, WeekSummary> = {};
+            for (const s of summaries) map[s.monday] = s;
+            setSummaries(map);
+            fetchedSummariesRef.current.add(summariesKey);
+            setLoadedSummariesKey(summariesKey);
+        } catch {
+            setSummaries({});
+        } finally {
+            setFetchingSummaries(false);
+        }
+    }, [boundsReady, monthSpan.clampFrom, monthSpan.clampTo, summariesKey, fromISO, toISOstr, getAccessToken]);
+
+    useEffect(() => {
+        if (!boundsReady) return;
+        if (loadedSummariesKey !== summariesKey) {
+            setLoadedSummariesKey(null);
+        }
+        void reloadSummaries();
+    }, [boundsReady, summariesKey, loadedSummariesKey, reloadSummaries]);
+
+    const invalidateSummaries = useCallback(() => {
+        fetchedSummariesRef.current.delete(summariesKey);
+        setLoadedSummariesKey(null);
+    }, [summariesKey]);
+
+    // ——— save / close with local optimistic update + summaries refresh ———
     const handleSaveWeek = useCallback(async () => {
         try {
             setSaving(true);
             const token = await getAccessToken();
 
-            // Only send current week’s dates
             const payload: EntriesByDate = {};
             for (const iso of weekDatesISO) {
                 payload[iso] = (draftEntriesByDate[iso] ?? []).map((r) => ({
@@ -246,51 +320,47 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 }));
             }
 
+            // optimistic: reflect draft -> server copy so UI doesn't flash
+            setEntriesByDate(() => payload);
+
             await replaceDayEntries(payload, token);
 
-            // ✅ Optimistic sync: make "server copy" match the draft so isDirty becomes false
-            setEntriesByDate((prev) => {
-                // keep other weeks as-is; replace only the 7 days we just saved
-                const next = { ...prev };
-                for (const iso of weekDatesISO) {
-                    next[iso] = (draftEntriesByDate[iso] ?? []).map((r) => ({
-                        type: r.type,
-                        hours: Number(r.hours || 0),
-                        projectId: r.projectId ?? null,
-                        note: r.note ?? null,
-                    }));
-                }
-                return next;
-            });
+            // keep draft in sync with server copy
+            setDraftEntriesByDate(payload);
 
-            // Optionally keep period.totalHours in sync right away
-            setPeriod((p) => (p ? { ...p, totalHours: Number(weekTotal.toFixed(2)) } : p));
+            // refresh summaries so calendar badges update
+            invalidateSummaries();
+            await reloadSummaries();
 
-            // Do NOT invalidate or reload — we trust our local state
-            // fetchedKeysRef.current.delete(`${from}|${to}`);  // <- remove this
-            // await reloadWeek();                               // <- and this
+            // no need to refetch the week (already in sync)
+            setWeekErr(null);
+            fetchedKeysRef.current.add(currentKey);
+            setLoadedKey(currentKey);
         } finally {
             setSaving(false);
         }
-    }, [
-        getAccessToken,
-        draftEntriesByDate,
-        weekDatesISO,
-        // weekTotal if you keep the period total in sync:
-        weekTotal,
-    ]);
+    }, [getAccessToken, draftEntriesByDate, weekDatesISO, invalidateSummaries, reloadSummaries, currentKey]);
 
     const handleCloseOrReopen = useCallback(async () => {
         try {
             setClosing(true);
             const token = await getAccessToken();
             await patchPeriod(isClosed ? "reopen" : "close", weekStartISO, token);
-            invalidateCurrentRange();
-            await reloadWeek();
+
+            // update local period state immediately
+            setPeriod((p) => (p ? { ...p, closed: !isClosed } : p));
+
+            // refresh summaries for badges
+            invalidateSummaries();
+            await reloadSummaries();
+
+            // no need to refetch week unless you want to enforce read-only transitions
+            fetchedKeysRef.current.add(currentKey);
+            setLoadedKey(currentKey);
         } finally {
             setClosing(false);
         }
-    }, [getAccessToken, isClosed, weekStartISO, invalidateCurrentRange, reloadWeek]);
+    }, [getAccessToken, isClosed, weekStartISO, invalidateSummaries, reloadSummaries, currentKey]);
 
     // ——— AI ———
     const [aiCmd, setAiCmd] = useState("");
@@ -421,5 +491,12 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         aiBusy,
         aiMsg,
         handleAIApply,
+
+        // Navigator month + summaries
+        visibleMonth,
+        setVisibleMonth,
+        summaries, // Record<mondayISO, WeekSummary>
+        fetchingSummaries,
+        reloadSummaries, // exposed if you need manual refresh
     };
 }

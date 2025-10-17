@@ -20,8 +20,9 @@ export function addDays(date: Date, n: number): Date {
     return dfAddDays(date, n);
 }
 
-export function toISO(d: Date): string {
-    return format(d, "yyyy-MM-dd");
+export function toISO(d: Date | string | number): string {
+    const date = typeof d === "string" ? new Date(d) : (d as Date | number);
+    return format(date as Date | number, "yyyy-MM-dd");
 }
 
 export function weekRangeISO(weekStart: Date): { from: string; to: string } {

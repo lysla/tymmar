@@ -1,4 +1,4 @@
-import type { DayEntry, DayType } from "../types";
+import type { DayEntry, DayType, WeekSummary } from "../types";
 
 export type Settings = { mon: number; tue: number; wed: number; thu: number; fri: number; sat: number; sun: number };
 export type PeriodInfo = { weekKey: string; weekStartDate: string; closed: boolean; totalHours: number };
@@ -46,6 +46,16 @@ export async function patchPeriod(action: "close" | "reopen", weekStart: string,
     const data = await r.json();
     if (!r.ok) throw new Error(data?.error || "Action failed");
     return data;
+}
+
+export async function fetchWeekSummaries(fromISO: string, toISO: string, token?: string, opts?: { signal?: AbortSignal }) {
+    const r = await fetch(`/api/week_summaries?from=${fromISO}&to=${toISO}`, {
+        method: "GET",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: opts?.signal,
+    });
+    if (!r.ok) throw new Error("Failed to load week summaries");
+    return r.json() as Promise<{ summaries: WeekSummary[]; range: { from: string; to: string } }>;
 }
 
 export async function askAIForHours(params: {
