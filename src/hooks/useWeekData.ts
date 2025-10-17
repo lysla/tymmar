@@ -1,41 +1,83 @@
 // src/hooks/useWeekData.ts
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { addDays, getMonday, toISO, weekRangeISO, shallowEqualHours, clampMondayISO, isDateAllowed } from "../helpers";
-import { askAIForHours, fetchSettings, fetchWeek, saveWeek, patchPeriod, type Settings, type PeriodInfo, type EntriesMap } from "../services";
+import { addDays, getMonday, toISO, weekRangeISO, clampMondayISO, isDateAllowed } from "../helpers";
+import { fetchSettings, patchPeriod, type Settings, type PeriodInfo, fetchWeek, replaceDayEntries, type EntriesByDate } from "../services";
 import { parseISO, startOfDay, isBefore, isAfter } from "date-fns";
+import type { DayEntry as DayEntryType, DayType } from "../types";
+
+type DayEntry = Partial<DayEntryType>;
+
+/* ---------- deep compare utility for isDirty ---------- */
+function equalEntriesForDates(a: EntriesByDate, b: EntriesByDate, dates: string[]) {
+    for (const d of dates) {
+        const aa = a[d] ?? [];
+        const bb = b[d] ?? [];
+        if (aa.length !== bb.length) return false;
+        for (let i = 0; i < aa.length; i++) {
+            const x = aa[i] || ({} as DayEntry);
+            const y = bb[i] || ({} as DayEntry);
+            if (x.type !== y.type || Number(x.hours) !== Number(y.hours) || (x.projectId ?? null) !== (y.projectId ?? null) || (x.note ?? "") !== (y.note ?? "")) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
 
 export function useWeekData(getAccessToken: () => Promise<string | undefined>, opts?: { startDateISO?: string | null; endDateISO?: string | null; boundsReady?: boolean }) {
     const startBound = opts?.startDateISO ?? null;
     const endBound = opts?.endDateISO ?? null;
-    const boundsReady = Boolean(opts?.boundsReady ?? true); // if not provided, treat as ready
+    const boundsReady = Boolean(opts?.boundsReady ?? true);
 
-    // ——— week state (initialized only when bounds are ready) ———
-    const [weekStart, setWeekStart] = useState<Date>(() => {
-        // If bounds aren't ready yet, don't clamp—use today; we will replace it once bounds arrive.
-        const initialMonday = getMonday(new Date());
-        return initialMonday;
-    });
-
+    // ——— week state ———
+    const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
     const weekStartISO = useMemo(() => toISO(weekStart), [weekStart]);
     const { from, to } = useMemo(() => weekRangeISO(weekStart), [weekStart]);
+    const currentKey = `${from}|${to}`;
 
     const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
     const weekDatesISO = useMemo(() => days.map(toISO), [days]);
 
+    // ——— hydration/loading control + dedupe ———
+    const fetchedKeysRef = useRef<Set<string>>(new Set());
+    const [loadedKey, setLoadedKey] = useState<string | null>(null);
+    const [fetching, setFetching] = useState(false);
+    const loadingWeek = fetching || loadedKey !== currentKey;
+
+    // ——— navigation (invalidate target range so it refetches) ———
     const jumpToWeek = useCallback(
         (mondayISO: string) => {
             const clamped = clampMondayISO(mondayISO, startBound, endBound);
-            setWeekStart(parseISO(clamped));
+            const monday = parseISO(clamped);
+            const r = weekRangeISO(monday);
+            const targetKey = `${r.from}|${r.to}`;
+            fetchedKeysRef.current.delete(targetKey); // force fresh fetch for that range
+            setLoadedKey(null); // show loading until hydrated
+            setWeekStart(monday);
         },
         [startBound, endBound]
     );
 
     const prevWeek = useCallback(() => {
-        setWeekStart((cur) => parseISO(clampMondayISO(toISO(addDays(cur, -7)), startBound, endBound)));
+        setWeekStart((cur) => {
+            const nextMonday = parseISO(clampMondayISO(toISO(addDays(cur, -7)), startBound, endBound));
+            const r = weekRangeISO(nextMonday);
+            const targetKey = `${r.from}|${r.to}`;
+            fetchedKeysRef.current.delete(targetKey);
+            setLoadedKey(null);
+            return nextMonday;
+        });
     }, [startBound, endBound]);
 
     const nextWeek = useCallback(() => {
-        setWeekStart((cur) => parseISO(clampMondayISO(toISO(addDays(cur, 7)), startBound, endBound)));
+        setWeekStart((cur) => {
+            const nextMonday = parseISO(clampMondayISO(toISO(addDays(cur, 7)), startBound, endBound));
+            const r = weekRangeISO(nextMonday);
+            const targetKey = `${r.from}|${r.to}`;
+            fetchedKeysRef.current.delete(targetKey);
+            setLoadedKey(null);
+            return nextMonday;
+        });
     }, [startBound, endBound]);
 
     // ——— settings ———
@@ -47,42 +89,79 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
 
     // ——— data ———
     const [period, setPeriod] = useState<PeriodInfo | null>(null);
-    const [entries, setEntries] = useState<EntriesMap>({});
-    const [loadingWeek, setLoadingWeek] = useState(true);
+    const [entriesByDate, setEntriesByDate] = useState<EntriesByDate>({});
+    const [draftEntriesByDate, setDraftEntriesByDate] = useState<EntriesByDate>({});
     const [weekErr, setWeekErr] = useState<string | null>(null);
 
-    // ——— drafts ———
-    const hoursView = useMemo(() => {
-        const obj: Record<string, number> = {};
-        for (const d of weekDatesISO) obj[d] = entries[d]?.totalHours ?? 0;
-        return obj;
-    }, [entries, weekDatesISO]);
+    // compute totals/percent from the draft (what the user sees)
+    const weekTotal = useMemo(() => {
+        return weekDatesISO.reduce((sum, iso) => {
+            const rows = draftEntriesByDate[iso] ?? [];
+            const subtotal = rows.reduce((s, r) => s + Number(r.hours || 0), 0);
+            return sum + subtotal;
+        }, 0);
+    }, [draftEntriesByDate, weekDatesISO]);
 
-    const [hoursDraft, setHoursDraft] = useState<Record<string, number>>({});
-    const [savedSnapshot, setSavedSnapshot] = useState<Record<string, number>>({});
-
-    useEffect(() => {
-        setHoursDraft(hoursView);
-        setSavedSnapshot(hoursView);
-    }, [hoursView]);
-
-    const isClosed = Boolean(period?.closed);
-    const isDirty = !shallowEqualHours(hoursDraft, savedSnapshot, weekDatesISO);
-
-    const weekTotal = weekDatesISO.reduce((sum, k) => sum + (hoursDraft[k] ?? 0), 0);
     const weekExpected = expectedByDay.reduce((a, b) => a + b, 0);
     const weekPct = weekExpected > 0 ? Math.max(0, Math.min(100, Math.round((weekTotal / weekExpected) * 100))) : 0;
 
-    const setVal = useCallback(
-        (date: Date, v: number) => {
+    // isClosed + isDirty
+    const isClosed = Boolean(period?.closed);
+    const isDirty = useMemo(() => !equalEntriesForDates(draftEntriesByDate, entriesByDate, weekDatesISO), [draftEntriesByDate, entriesByDate, weekDatesISO]);
+
+    // ——— edit helpers (row-based) ———
+    const addEntry = useCallback(
+        (date: Date) => {
             if (!isDateAllowed(date, startBound, endBound)) return;
-            const k = toISO(date);
-            setHoursDraft((h) => ({ ...h, [k]: v }));
+            const iso = toISO(date);
+            setDraftEntriesByDate((cur) => {
+                const rows = cur[iso] ? [...cur[iso]] : [];
+                rows.push({ type: "work", hours: 0, projectId: null, note: null });
+                return { ...cur, [iso]: rows };
+            });
         },
         [startBound, endBound]
     );
 
-    // ——— load settings once (dedup naturally) ———
+    const updateEntry = useCallback((date: Date, index: number, patch: Partial<DayEntry>) => {
+        const iso = toISO(date);
+        setDraftEntriesByDate((cur) => {
+            const rows = cur[iso] ? [...cur[iso]] : [];
+            if (!rows[index]) return cur;
+            rows[index] = { ...rows[index], ...patch };
+            return { ...cur, [iso]: rows };
+        });
+    }, []);
+
+    const removeEntry = useCallback((date: Date, index: number) => {
+        const iso = toISO(date);
+        setDraftEntriesByDate((cur) => {
+            const rows = cur[iso] ? [...cur[iso]] : [];
+            if (!rows[index]) return cur;
+            rows.splice(index, 1);
+            return { ...cur, [iso]: rows };
+        });
+    }, []);
+
+    // legacy single-value helper
+    const setVal = useCallback(
+        (date: Date, v: number) => {
+            if (!isDateAllowed(date, startBound, endBound)) return;
+            const iso = toISO(date);
+            setDraftEntriesByDate((cur) => {
+                const rows = cur[iso] ? [...cur[iso]] : [];
+                if (rows.length === 0) {
+                    rows.push({ type: "work", hours: v, projectId: null, note: null });
+                } else {
+                    rows[0] = { ...rows[0], hours: v };
+                }
+                return { ...cur, [iso]: rows };
+            });
+        },
+        [startBound, endBound]
+    );
+
+    // ——— load settings once ———
     useEffect(() => {
         let active = true;
         (async () => {
@@ -91,7 +170,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 const json = await fetchSettings(token);
                 if (active) setSettings(json.settings);
             } catch {
-                /* keep defaults */
+                /* ignore */
             }
         })();
         return () => {
@@ -99,85 +178,93 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         };
     }, [getAccessToken]);
 
-    // ——— dedupe reloads ———
-    const fetchedKeysRef = useRef<Set<string>>(new Set());
-
+    // ——— fetch week (with dedupe) ———
     const reloadWeek = useCallback(async () => {
-        if (!boundsReady) return; // do nothing until bounds are ready
-        const key = `${from}|${to}`;
-        if (fetchedKeysRef.current.has(key)) return; // prevent duplicate same-range fetches (incl. StrictMode)
-        fetchedKeysRef.current.add(key);
+        if (!boundsReady) return;
 
-        const token = await getAccessToken();
-        const json = await fetchWeek(from, to, token);
-        setPeriod(json.period);
-        setEntries(json.entries || {});
-    }, [boundsReady, getAccessToken, from, to]);
+        if (fetchedKeysRef.current.has(currentKey)) {
+            setLoadedKey(currentKey);
+            return;
+        }
+
+        setFetching(true);
+        try {
+            const token = await getAccessToken();
+            const json = await fetchWeek(from, to, token);
+            setPeriod(json.period);
+            setEntriesByDate(json.entriesByDate || {});
+            setDraftEntriesByDate(json.entriesByDate || {});
+            fetchedKeysRef.current.add(currentKey);
+            setLoadedKey(currentKey);
+            setWeekErr(null);
+        } catch (e: any) {
+            setWeekErr(e?.message || "Failed to load week");
+        } finally {
+            setFetching(false);
+        }
+    }, [boundsReady, getAccessToken, from, to, currentKey]);
 
     // Trigger load when week range changes (after bounds are ready)
     useEffect(() => {
-        let active = true;
-        (async () => {
-            if (!boundsReady) return;
+        if (!boundsReady) return;
 
-            // Clamp first
-            const curISO = toISO(weekStart);
-            const clampedISO = clampMondayISO(curISO, startBound, endBound);
-            if (clampedISO !== curISO) {
-                setWeekStart(parseISO(clampedISO));
-                return; // skip fetch this cycle
-            }
+        const curISO = toISO(weekStart);
+        const clampedISO = clampMondayISO(curISO, startBound, endBound);
+        if (clampedISO !== curISO) {
+            setLoadedKey(null);
+            setWeekStart(parseISO(clampedISO));
+            return;
+        }
 
-            try {
-                setLoadingWeek(true);
-                setWeekErr(null);
-                await reloadWeek();
-            } catch (e: any) {
-                if (active) setWeekErr(e?.message || "Failed to load week");
-            } finally {
-                if (active) setLoadingWeek(false);
-            }
-        })();
-        return () => {
-            active = false;
-        };
-    }, [boundsReady, weekStart, startBound, endBound, reloadWeek]);
+        if (loadedKey !== currentKey) {
+            setLoadedKey(null);
+        }
+        void reloadWeek();
+    }, [boundsReady, weekStart, startBound, endBound, currentKey, loadedKey, reloadWeek]);
 
     // ——— actions ———
     const [saving, setSaving] = useState(false);
     const [closing, setClosing] = useState(false);
 
+    const invalidateCurrentRange = useCallback(() => {
+        fetchedKeysRef.current.delete(currentKey);
+        setLoadedKey(null);
+    }, [currentKey]);
+
     const handleSaveWeek = useCallback(async () => {
         try {
             setSaving(true);
             const token = await getAccessToken();
-            await saveWeek(
-                weekDatesISO.map((k) => ({
-                    date: k,
-                    totalHours: Number(hoursDraft[k] ?? 0),
-                    type: "work" as const,
-                })),
-                token
-            );
-            // Re-fetch this same range (won’t double thanks to dedupe Set per mount; clear key first)
-            fetchedKeysRef.current.delete(`${from}|${to}`);
+
+            const payload: EntriesByDate = {};
+            for (const iso of weekDatesISO) {
+                payload[iso] = (draftEntriesByDate[iso] ?? []).map((r) => ({
+                    type: r.type,
+                    hours: Number(r.hours || 0),
+                    projectId: r.projectId ?? null,
+                    note: r.note ?? null,
+                }));
+            }
+
+            await replaceDayEntries(payload, token);
+            invalidateCurrentRange();
             await reloadWeek();
         } finally {
             setSaving(false);
         }
-    }, [getAccessToken, hoursDraft, weekDatesISO, from, to, reloadWeek]);
+    }, [getAccessToken, draftEntriesByDate, weekDatesISO, invalidateCurrentRange, reloadWeek]);
 
     const handleCloseOrReopen = useCallback(async () => {
         try {
             setClosing(true);
             const token = await getAccessToken();
             await patchPeriod(isClosed ? "reopen" : "close", weekStartISO, token);
-            fetchedKeysRef.current.delete(`${from}|${to}`);
+            invalidateCurrentRange();
             await reloadWeek();
         } finally {
             setClosing(false);
         }
-    }, [getAccessToken, isClosed, weekStartISO, from, to, reloadWeek]);
+    }, [getAccessToken, isClosed, weekStartISO, invalidateCurrentRange, reloadWeek]);
 
     // ——— AI ———
     const [aiCmd, setAiCmd] = useState("");
@@ -192,42 +279,49 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
             const token = await getAccessToken();
 
             const weekSet = new Set(weekDatesISO);
-
-            const isISOWithinEmployment = (iso: string) => {
+            const inEmployment = (iso: string) => {
                 const d = startOfDay(parseISO(iso));
                 if (startBound && isBefore(d, startBound)) return false;
                 if (endBound && isAfter(d, endBound)) return false;
                 return true;
             };
-            const allowedDatesForAI = weekDatesISO.filter(isISOWithinEmployment);
+            const allowedDates = weekDatesISO.filter(inEmployment);
 
-            const currentEntries = Object.fromEntries(
-                weekDatesISO.map((d) => [
-                    d,
-                    {
-                        totalHours: Number(hoursDraft[d] ?? 0),
-                        type: (entries[d]?.type ?? "work") as "work" | "sick" | "time_off",
-                    },
-                ])
+            const currentTotals = Object.fromEntries(
+                weekDatesISO.map((d) => {
+                    const rows = draftEntriesByDate[d] ?? [];
+                    const total = rows.reduce((s, r) => s + Number(r.hours || 0), 0);
+                    const t = (rows[0]?.type ?? "work") as DayType;
+                    return [d, { totalHours: total, type: t }];
+                })
             );
 
             const mode = /\b(missing|only\s+missing|don['’]t\s+change|keep\s+existing)\b/i.test(aiCmd) ? "fill-missing" : "overwrite-week";
 
-            const { suggestions, rationale } = await askAIForHours({
-                command: aiCmd || "Fill a normal week based on expected hours.",
-                weekStart: weekStartISO,
-                expectedByDay: [...expectedByDay],
-                entries: currentEntries,
-                allowedDates: allowedDatesForAI,
-                mode,
-                token,
+            const r = await fetch("/api/ai", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    command: aiCmd || "Fill a normal week based on expected hours.",
+                    weekStart: weekStartISO,
+                    expectedByDay: [...expectedByDay],
+                    entries: currentTotals,
+                    allowedDates,
+                    mode,
+                }),
             });
+            const { suggestions, error } = await r.json();
+            if (!r.ok) throw new Error(error || "AI failed");
 
-            const filtered = suggestions
-                .filter((s) => weekSet.has(s.date) && isISOWithinEmployment(s.date))
-                .map((s) => ({
+            const filtered: { date: string; hours: number; type: DayType }[] = (suggestions ?? [])
+                .filter((s: any) => weekSet.has(s.date) && inEmployment(s.date))
+                .map((s: any) => ({
                     date: s.date,
-                    totalHours: Math.max(0, Math.min(24, Number(s.totalHours || 0))),
+                    hours: Math.max(0, Math.min(24, Number(s.totalHours || 0))),
+                    type: (s.type ?? "work") as DayType,
                 }));
 
             if (filtered.length === 0) {
@@ -235,22 +329,21 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 return;
             }
 
-            setHoursDraft((prev) => {
-                const next = { ...prev };
-                for (const s of filtered) next[s.date] = s.totalHours;
+            setDraftEntriesByDate((cur) => {
+                const next = { ...cur };
+                for (const f of filtered) {
+                    next[f.date] = [{ type: f.type, hours: f.hours, projectId: null, note: null }];
+                }
                 return next;
             });
 
             setAiCmd("");
-            if (rationale) {
-                // optional: setAiMsg(rationale);
-            }
         } catch (e: any) {
             setAiMsg(e?.message || "AI failed");
         } finally {
             setAiBusy(false);
         }
-    }, [aiCmd, entries, expectedByDay, getAccessToken, hoursDraft, weekDatesISO, weekStartISO, startBound, endBound]);
+    }, [aiCmd, getAccessToken, draftEntriesByDate, expectedByDay, weekDatesISO, weekStartISO, startBound, endBound]);
 
     return {
         // week navigation & range
@@ -264,7 +357,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         prevWeek,
         nextWeek,
 
-        // expose bounds so consumers (or the context) can use them
+        // bounds
         startDateISO: startBound,
         endDateISO: endBound,
 
@@ -272,8 +365,8 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         settings,
         expectedByDay,
         period,
-        entries,
-        hoursDraft,
+        entriesByDate,
+        draftEntriesByDate,
         isClosed,
         isDirty,
         weekTotal,
@@ -284,8 +377,13 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         loadingWeek,
         weekErr,
 
-        // field/edit helpers
+        // row edit helpers
+        addEntry,
+        updateEntry,
+        removeEntry,
         setVal,
+
+        // actions
         handleSaveWeek,
         handleCloseOrReopen,
         saving,

@@ -6,8 +6,19 @@ export type Employee = {
     password: string; // only for form use, not stored here
     userId: string | null;
     email: string; // comes from Supabase auth
-    startDate: string | null; // ISO date string (YYYY-MM-DD)
-    endDate: string | null; // ISO date string (YYYY-MM-DD)
-    updatedAt: string; // ISO date string (YYYY-MM-DDTHH:mm:ss.sssZ)
-    createdAt: string; // ISO date string (YYYY-MM-DDTHH:mm:ss.sssZ)
+    startDate: string | null;
+    endDate: string | null;
+    updatedAt: string;
+    createdAt: string;
+};
+
+export type DayType = "work" | "sick" | "time_off";
+
+export type DayEntry = {
+    id: number;
+    date: string;
+    type: DayType;
+    hours: number;
+    projectId: number | null;
+    note: string | null;
 };

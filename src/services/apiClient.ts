@@ -1,6 +1,9 @@
+import type { DayEntry, DayType } from "../types";
+
 export type Settings = { mon: number; tue: number; wed: number; thu: number; fri: number; sat: number; sun: number };
 export type PeriodInfo = { weekKey: string; weekStartDate: string; closed: boolean; totalHours: number };
 export type EntriesMap = Record<string, { totalHours: number; type: string }>;
+export type EntriesByDate = Record<string, Partial<DayEntry>[]>;
 
 export async function fetchSettings(token?: string) {
     const r = await fetch("/api/settings", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
@@ -8,21 +11,30 @@ export async function fetchSettings(token?: string) {
     return (await r.json()) as { settings: Settings };
 }
 
-export async function fetchWeek(fromISO: string, toISO: string, token?: string) {
-    const r = await fetch(`/api/hours?from=${fromISO}&to=${toISO}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+export async function fetchWeek(from: string, to: string, token?: string) {
+    const r = await fetch(`/api/day_entries?from=${from}&to=${to}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!r.ok) throw new Error("Failed to load week");
-    return (await r.json()) as { period: PeriodInfo; entries: EntriesMap };
+    return (await r.json()) as {
+        period: PeriodInfo;
+        entriesByDate: EntriesByDate;
+        totals: Record<string, { totalHours: number; type: DayType | "mixed" }>;
+    };
 }
 
-export async function saveWeek(entries: { date: string; totalHours: number; type: "work" }[], token?: string) {
-    const r = await fetch("/api/hours", {
+export async function replaceDayEntries(entriesByDate: EntriesByDate, token?: string) {
+    const r = await fetch(`/api/day_entries`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ entries }),
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ mode: "replace-day-entries", entriesByDate }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data?.error || "Save failed");
-    return data;
+    const json = await r.json();
+    if (!r.ok) throw new Error(json?.error || "Save failed");
+    return json as { ok: true; dates: number };
 }
 
 export async function patchPeriod(action: "close" | "reopen", weekStart: string, token?: string) {

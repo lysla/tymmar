@@ -132,3 +132,7 @@ body > div:first-child {
 .progress__bar--alt {
     @apply h-[20px];
 }
+
+.remove {
+    @apply absolute bg-tertiary rounded-full top-0 left-0 h-5 w-5 inline-flex justify-center items-center -translate-1/2 text-xs hover:bg-secondary cursor-pointer text-secondary hover:text-tertiary;
+}

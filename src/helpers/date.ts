@@ -1,5 +1,6 @@
 // src/helpers/date.ts
 import { startOfWeek, endOfWeek, addDays as dfAddDays, format, parseISO, startOfDay, isBefore, isAfter, isWithinInterval } from "date-fns";
+import type { DayType } from "../types";
 
 /* ── constants ─────────────────────────────────────────────── */
 export const MIN_DATE = new Date(-8640000000000000);
@@ -28,6 +29,28 @@ export function weekRangeISO(weekStart: Date): { from: string; to: string } {
         from: format(weekStart, "yyyy-MM-dd"),
         to: format(endOfWeek(weekStart, { weekStartsOn: 1 }), "yyyy-MM-dd"),
     };
+}
+
+export function isDateISO(s?: string): s is string {
+    return Boolean(s && /^\d{4}-\d{2}-\d{2}$/.test(s));
+}
+export function isValidType(t?: string): t is DayType {
+    return !t || t === "work" || t === "sick" || t === "time_off";
+}
+export function addDaysISO(dateISO: string, n: number): string {
+    const d = parseISO(dateISO);
+    return toISO(dfAddDays(d, n));
+}
+export function isoWeekKeyFromMonday(mondayISO: string): string {
+    // ISO week key, same as your hours.ts logic
+    const d = new Date(mondayISO + "T00:00:00Z");
+    const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0..Sun=6
+    date.setUTCDate(date.getUTCDate() - dayNum + 3);
+    const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+    const weekNo = 1 + Math.round(((date.getTime() - firstThursday.getTime()) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+    const year = date.getUTCFullYear();
+    return `${year}-W${String(weekNo).padStart(2, "0")}`;
 }
 
 export function fmtDayLabel(d: Date): string {
