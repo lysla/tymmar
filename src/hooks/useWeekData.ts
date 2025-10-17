@@ -1,26 +1,8 @@
 // src/hooks/useWeekData.ts
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { addDays, getMonday, toISO, weekRangeISO, shallowEqualHours } from "../helpers";
+import { addDays, getMonday, toISO, weekRangeISO, shallowEqualHours, clampMondayISO, isDateAllowed } from "../helpers";
 import { askAIForHours, fetchSettings, fetchWeek, saveWeek, patchPeriod, type Settings, type PeriodInfo, type EntriesMap } from "../services";
-import { parseISO, startOfDay, startOfWeek, isBefore, isAfter, isWithinInterval } from "date-fns";
-
-function clampMondayISO(mondayISO: string, startDateISO?: string | null, endDateISO?: string | null): string {
-    if (!startDateISO && !endDateISO) return mondayISO;
-    const monday = parseISO(mondayISO);
-    const start = startDateISO ? parseISO(startDateISO) : undefined;
-    const end = endDateISO ? parseISO(endDateISO) : undefined;
-    const mondayOf = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
-    if (start && isBefore(monday, mondayOf(start))) return toISO(mondayOf(start));
-    if (end && isAfter(monday, mondayOf(end))) return toISO(mondayOf(end));
-    return mondayISO;
-}
-
-function isDateAllowed(date: Date, startDateISO?: string | null, endDateISO?: string | null) {
-    if (!startDateISO && !endDateISO) return true;
-    const start = startDateISO ? parseISO(startDateISO) : new Date(-8640000000000000);
-    const end = endDateISO ? parseISO(endDateISO) : new Date(8640000000000000);
-    return isWithinInterval(date, { start, end });
-}
+import { parseISO, startOfDay, isBefore, isAfter } from "date-fns";
 
 export function useWeekData(getAccessToken: () => Promise<string | undefined>, opts?: { startDateISO?: string | null; endDateISO?: string | null; boundsReady?: boolean }) {
     const startBound = opts?.startDateISO ?? null;
