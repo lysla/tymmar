@@ -67,8 +67,8 @@ body > div:first-child {
 .input {
     @apply outline-none border border-dark px-4 py-2 w-full;
 }
-.input--text {
-    @apply w-[90px];
+.input--alt {
+    @apply bg-light border-0;
 }
 .button {
     @apply cursor-pointer px-4 py-2 bg-primary text-light hover:bg-secondary active:bg-tertiary active:text-dark;
@@ -84,6 +84,9 @@ body > div:first-child {
 }
 .link {
     @apply text-primary font-bold border-b cursor-pointer hover:text-secondary active:text-dark;
+}
+.link--mini {
+    @apply text-xs;
 }
 .error {
     @apply text-sm;

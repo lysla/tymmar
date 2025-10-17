@@ -29,7 +29,7 @@ export default function WeekGrid() {
                 const disabledHint = !withinEmployment ? "Outside your employment dates" : undefined;
 
                 return (
-                    <div key={k} className={isDisabled ? "opacity-40" : ""} title={disabledHint}>
+                    <div key={k} className={isDisabled ? "opacity-40 pointer-events-none" : ""} title={disabledHint}>
                         <p className="font-serif leading-[1]">{fmtDayLabel(d)}</p>
 
                         <div className="flex items-end mt-4">
@@ -41,21 +41,37 @@ export default function WeekGrid() {
 
                         <p className="text-xs mt-4">Expected hours: {expected}</p>
 
-                        <input
-                            type="number"
-                            className="input input--text [ mt-4 ]"
-                            min={0}
-                            max={24}
-                            step={1}
-                            value={entered || ""}
-                            onChange={(e) => {
-                                if (isDisabled) return; // guard
-                                const v = Number(e.target.value);
-                                setVal(d, Number.isFinite(v) ? v : 0);
-                            }}
-                            placeholder="0"
-                            disabled={isDisabled}
-                        />
+                        <div className="p-4 bg-primary mt-4 mb-2">
+                            <input
+                                type="number"
+                                className="input input--alt"
+                                min={0}
+                                max={24}
+                                step={1}
+                                value={entered || ""}
+                                onChange={(e) => {
+                                    if (isDisabled) return; // guard
+                                    const v = Number(e.target.value);
+                                    setVal(d, Number.isFinite(v) ? v : 0);
+                                }}
+                                placeholder="0"
+                                disabled={isDisabled}
+                            />
+                            <select className="bg-light max-w-full text-xs">
+                                <option>Doing what?*</option>
+                                <option value="work">Working</option>
+                                <option value="work-project1">-- Project A</option>
+                                <option value="work-project2">-- Project B</option>
+                                <option value="sick">Being sick</option>
+                                <option value="time_off">Taking time off</option>
+                            </select>
+                        </div>
+
+                        <div className="pl-4">
+                            <a href="" className="link link--mini">
+                                + Entry
+                            </a>
+                        </div>
                     </div>
                 );
             })}
