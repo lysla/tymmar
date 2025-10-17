@@ -264,6 +264,10 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         prevWeek,
         nextWeek,
 
+        // expose bounds so consumers (or the context) can use them
+        startDateISO: startBound,
+        endDateISO: endBound,
+
         // settings/data/derived
         settings,
         expectedByDay,

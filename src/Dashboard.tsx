@@ -1,7 +1,7 @@
 // src/Dashboard.tsx
 import { useAuth } from "./context/AuthContext";
 import { useEmployee } from "./context/EmployeeContext";
-import { useWeekData } from "./hooks/useWeekData";
+import { WeekDataProvider, useWeekDataContext } from "./context/WeekDataContext";
 import WeekNavigator from "./components/WeekNavigator";
 import WeekGrid from "./components/WeekGrid";
 import AIComposer from "./components/AIComposer";
@@ -11,15 +11,7 @@ export default function Dashboard() {
     const { signOut, getAccessToken } = useAuth();
     const { status, employee, refetch } = useEmployee();
 
-    const boundsReady = status === "ok" && !!employee;
-
-    const d = useWeekData(getAccessToken, {
-        startDateISO: employee?.startDate ?? undefined,
-        endDateISO: employee?.endDate ?? undefined,
-        boundsReady,
-    });
-
-    // auth/employee states
+    // Auth/employee states
     if (status === "idle" || status === "loading") {
         return (
             <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
@@ -49,14 +41,25 @@ export default function Dashboard() {
         );
     }
 
+    // We have a logged-in employee → provide week data with their date bounds.
+    return (
+        <WeekDataProvider getAccessToken={getAccessToken} startDateISO={employee?.startDate ?? null} endDateISO={employee?.endDate ?? null}>
+            <DashboardBody onSignOut={signOut} employeeName={employee?.name || ""} />
+        </WeekDataProvider>
+    );
+}
+
+function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; employeeName: string }) {
+    const d = useWeekDataContext();
+
     return (
         <>
             <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
                 <header className="flex items-center justify-between bg-white px-8 py-6">
                     <h1>
-                        <span className="font-serif uppercase">Hello</span> {employee?.name}!
+                        <span className="font-serif uppercase">Hello</span> {employeeName}!
                     </h1>
-                    <button className="link" onClick={signOut}>
+                    <button className="link" onClick={onSignOut}>
                         Sign out
                     </button>
                 </header>
@@ -64,17 +67,12 @@ export default function Dashboard() {
                 <div className="bg-white mt-8 p-8">
                     <div className="flex items-start gap-x-16 pb-8 border-b border-light">
                         <div className="w-auto">
-                            <WeekNavigator
-                                weekStartISO={d.weekStartISO}
-                                onJump={d.jumpToWeek}
-                                disabled={d.loadingWeek}
-                                // (navigator itself already uses these to disable dates)
-                                startDateISO={employee?.startDate ?? undefined}
-                                endDateISO={employee?.endDate ?? undefined}
-                            />
+                            {/* Week navigator (inline calendar) */}
+                            <WeekNavigator />
                         </div>
+
                         <div className="w-auto grow">
-                            {/* closed badge */}
+                            {/* Closed badge */}
                             {!d.weekErr && d.period?.closed && (
                                 <p className="error mb-4">
                                     <span>This period is closed.</span>
@@ -82,9 +80,9 @@ export default function Dashboard() {
                             )}
 
                             {/* AI composer */}
-                            {!d.weekErr && <AIComposer value={d.aiCmd} setValue={d.setAiCmd} busy={d.aiBusy} closed={d.isClosed || d.loadingWeek} message={d.aiMsg} onApply={d.handleAIApply} />}
+                            {!d.weekErr && <AIComposer />}
 
-                            {/* weekly totals */}
+                            {/* Weekly totals */}
                             {!d.weekErr && !d.loadingWeek && (
                                 <div className="py-8">
                                     <div className="flex items-end">
@@ -102,7 +100,7 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* loading/error */}
+                    {/* Loading/Error */}
                     {d.loadingWeek && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
                     {d.weekErr && !d.loadingWeek && (
                         <p className="py-6 text-center error">
@@ -110,10 +108,10 @@ export default function Dashboard() {
                         </p>
                     )}
 
-                    {/* grid */}
-                    {!d.loadingWeek && !d.weekErr && <WeekGrid days={d.days} expectedByDay={d.expectedByDay} values={d.hoursDraft} onChange={d.setVal} disabled={d.isClosed} startDateISO={employee?.startDate ?? undefined} endDateISO={employee?.endDate ?? undefined} />}
+                    {/* Grid */}
+                    {!d.loadingWeek && !d.weekErr && <WeekGrid />}
 
-                    {/* unsaved edits */}
+                    {/* Unsaved edits */}
                     {!d.loadingWeek && !d.weekErr && !d.isClosed && d.isDirty && (
                         <div className="flex items-center justify-end mt-8 text-xs text-secondary">
                             <p>There are unsaved edits! Remember to save!</p>
@@ -126,8 +124,8 @@ export default function Dashboard() {
                 </footer>
             </div>
 
-            {/* floating toolbar */}
-            {!d.loadingWeek && <FloatingToolbar showSave={!d.isClosed} onSave={d.handleSaveWeek} saving={d.saving} onToggleClose={d.handleCloseOrReopen} closing={d.closing} isClosed={d.isClosed} disabled={d.loadingWeek} />}
+            {/* Floating toolbar */}
+            {!d.loadingWeek && <FloatingToolbar />}
         </>
     );
 }

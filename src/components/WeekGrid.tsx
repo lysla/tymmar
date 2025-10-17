@@ -1,25 +1,11 @@
 // src/components/WeekGrid.tsx
+import { startOfDay, parseISO, isBefore, isAfter } from "date-fns";
 import { fmtDayLabel, toISO } from "../helpers";
-import { isAfter, isBefore, parseISO, startOfDay } from "date-fns";
+import { useWeekDataContext } from "../context/WeekDataContext";
 
-export default function WeekGrid({
-    days,
-    expectedByDay,
-    values,
-    onChange,
-    disabled,
-    startDateISO,
-    endDateISO,
-}: {
-    days: Date[];
-    expectedByDay: readonly number[];
-    values: Record<string, number>;
-    onChange: (date: Date, v: number) => void;
-    disabled?: boolean;
-    /** Employment interval (inclusive). If omitted -> no bound on that side */
-    startDateISO?: string | null;
-    endDateISO?: string | null;
-}) {
+export default function WeekGrid() {
+    const { days, expectedByDay, hoursDraft, setVal, isClosed, loadingWeek, startDateISO, endDateISO } = useWeekDataContext();
+
     // Pre-parse bounds once (start/end at 00:00 local)
     const startBound = startDateISO ? startOfDay(parseISO(startDateISO)) : null;
     const endBound = endDateISO ? startOfDay(parseISO(endDateISO)) : null;
@@ -29,7 +15,7 @@ export default function WeekGrid({
             {days.map((d, i) => {
                 const expected = expectedByDay[i] ?? 0;
                 const k = toISO(d);
-                const entered = values[k] ?? 0;
+                const entered = hoursDraft[k] ?? 0;
                 const pct = expected > 0 ? Math.max(0, Math.min(100, Math.round((entered / expected) * 100))) : 0;
 
                 // within employment range? (inclusive)
@@ -37,10 +23,9 @@ export default function WeekGrid({
                 const inEnd = !endBound || !isAfter(d, endBound);
                 const withinEmployment = inStart && inEnd;
 
-                // final disabled flag (no more "expected===0")
-                const isDisabled = disabled || !withinEmployment;
+                // final disabled flag (NOTE: NOT disabling when expected === 0)
+                const isDisabled = isClosed || loadingWeek || !withinEmployment;
 
-                // small hint if disabled by employment window
                 const disabledHint = !withinEmployment ? "Outside your employment dates" : undefined;
 
                 return (
@@ -65,7 +50,8 @@ export default function WeekGrid({
                             value={entered || ""}
                             onChange={(e) => {
                                 if (isDisabled) return; // guard
-                                onChange(d, Number(e.target.value));
+                                const v = Number(e.target.value);
+                                setVal(d, Number.isFinite(v) ? v : 0);
                             }}
                             placeholder="0"
                             disabled={isDisabled}

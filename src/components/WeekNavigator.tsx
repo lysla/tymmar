@@ -5,20 +5,12 @@ import { startOfWeek, endOfWeek, isWithinInterval, parseISO, startOfMonth, endOf
 import type { Interval } from "date-fns";
 import { enGB } from "date-fns/locale";
 import { getMonday, toISO } from "../helpers";
+import { useWeekDataContext } from "../context/WeekDataContext";
 
-export default function WeekNavigator({
-    weekStartISO,
-    onJump, // receives monday ISO (YYYY-MM-DD)
-    disabled,
-    startDateISO,
-    endDateISO,
-}: {
-    weekStartISO: string;
-    onJump: (mondayISO: string) => void;
-    disabled?: boolean;
-    startDateISO?: string | null;
-    endDateISO?: string | null;
-}) {
+export default function WeekNavigator() {
+    // Will throw if provider is missing (so we don’t need a conditional return)
+    const { weekStartISO, jumpToWeek, loadingWeek, startDateISO, endDateISO } = useWeekDataContext();
+
     // Selected Monday as Date
     const monday = parseISO(weekStartISO);
 
@@ -33,7 +25,7 @@ export default function WeekNavigator({
         };
     }, [startDateISO, endDateISO]);
 
-    // Restrict month navigation to bounds (optional but nice)
+    // Restrict month navigation to bounds (optional)
     const fromMonth = useMemo(() => (startDateISO ? startOfMonth(parseISO(startDateISO)) : undefined), [startDateISO]);
     const toMonth = useMemo(() => (endDateISO ? endOfMonth(parseISO(endDateISO)) : undefined), [endDateISO]);
 
@@ -49,13 +41,13 @@ export default function WeekNavigator({
     function handleSelect(day?: Date) {
         if (!day || !isDayAllowed(day)) return;
         const mondayISO = toISO(getMonday(day));
-        onJump(mondayISO);
+        jumpToWeek(mondayISO);
     }
 
     return (
-        <div className={disabled ? "pointer-events-none opacity-60" : ""}>
+        <div className={loadingWeek ? "pointer-events-none opacity-60" : ""}>
             <DayPicker
-                key={weekStartISO} // helps during HMR
+                key={weekStartISO} // keeps calendar aligned during HMR
                 mode="single"
                 selected={monday}
                 onSelect={handleSelect}

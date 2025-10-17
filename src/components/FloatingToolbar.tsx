@@ -1,12 +1,21 @@
-export default function FloatingToolbar({ showSave, onSave, saving, onToggleClose, closing, isClosed, disabled }: { showSave: boolean; onSave: () => void; saving: boolean; onToggleClose: () => void; closing: boolean; isClosed: boolean; disabled?: boolean }) {
+// src/components/FloatingToolbar.tsx
+import { useWeekDataContext } from "../context/WeekDataContext";
+
+export default function FloatingToolbar() {
+    const { isClosed, loadingWeek, saving, closing, handleSaveWeek, handleCloseOrReopen } = useWeekDataContext();
+
+    const showSave = !isClosed;
+    const disabled = loadingWeek;
+
     return (
         <div className="flowing-toolbar flowing-toolbar--alt">
             {showSave && (
-                <button className="button button--alt" title="Save period" onClick={onSave} disabled={disabled || saving}>
+                <button className="button button--alt" title="Save period" aria-label="Save period" onClick={handleSaveWeek} disabled={disabled || saving}>
                     {saving ? "Saving…" : "Save period"}
                 </button>
             )}
-            <button className="button button--alt2" title={isClosed ? "Reopen period" : "Close period"} onClick={onToggleClose} disabled={disabled || closing}>
+
+            <button className="button button--alt2" title={isClosed ? "Reopen period" : "Close period"} aria-label={isClosed ? "Reopen period" : "Close period"} onClick={handleCloseOrReopen} disabled={disabled || closing}>
                 {closing ? (isClosed ? "Reopening…" : "Closing…") : isClosed ? "Reopen period" : "Close period"}
             </button>
         </div>
