@@ -10,7 +10,7 @@ export default function WeekGrid() {
     const endBound = endDateISO ? startOfDay(parseISO(endDateISO)) : null;
 
     return (
-        <div className="grid grid-cols-7 gap-4 mt-8">
+        <div className="grid grid-cols-7 gap-x-8 mt-8">
             {days.map((d, i) => {
                 const expected = expectedByDay[i] ?? 0;
                 const iso = toISO(d);

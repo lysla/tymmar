@@ -124,7 +124,10 @@ body > div:first-child {
 }
 
 .progress {
-    @apply w-[60%] border border-primary flex;
+    @apply w-full border border-primary flex;
+}
+.progress--alt {
+    @apply w-[60%];
 }
 .progress__bar {
     @apply bg-primary h-[10px];
