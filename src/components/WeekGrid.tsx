@@ -1,5 +1,5 @@
 // src/components/WeekGrid.tsx
-import { startOfDay, parseISO, isBefore, isAfter } from "date-fns";
+import { startOfDay, parseISO, isBefore, isAfter, isSameDay } from "date-fns";
 import { fmtDayLabel, toISO } from "../helpers";
 import { useWeekDataContext } from "../context/WeekDataContext";
 
@@ -27,9 +27,11 @@ export default function WeekGrid() {
                 const totalEntered = rows.reduce((s, r) => s + Number(r.hours || 0), 0);
                 const pct = expected > 0 ? Math.max(0, Math.min(100, Math.round((totalEntered / expected) * 100))) : 0;
 
+                const isToday = isSameDay(d, new Date());
+
                 return (
                     <div key={iso} className={disabled ? "opacity-40 pointer-events-none" : ""} title={disabledHint}>
-                        <p className="font-serif leading-[1]">{fmtDayLabel(d)}</p>
+                        <p className={`font-serif leading-[1] ${isToday ? "text-secondary" : ""}`}>{fmtDayLabel(d)}</p>
 
                         <div className="flex items-end mt-4">
                             <span className="progress [ mr-2 ]" title={`${pct}%`}>

@@ -230,12 +230,12 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         fetchedKeysRef.current.delete(currentKey);
         setLoadedKey(null);
     }, [currentKey]);
-
     const handleSaveWeek = useCallback(async () => {
         try {
             setSaving(true);
             const token = await getAccessToken();
 
+            // Only send current week’s dates
             const payload: EntriesByDate = {};
             for (const iso of weekDatesISO) {
                 payload[iso] = (draftEntriesByDate[iso] ?? []).map((r) => ({
@@ -247,12 +247,38 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
             }
 
             await replaceDayEntries(payload, token);
-            invalidateCurrentRange();
-            await reloadWeek();
+
+            // ✅ Optimistic sync: make "server copy" match the draft so isDirty becomes false
+            setEntriesByDate((prev) => {
+                // keep other weeks as-is; replace only the 7 days we just saved
+                const next = { ...prev };
+                for (const iso of weekDatesISO) {
+                    next[iso] = (draftEntriesByDate[iso] ?? []).map((r) => ({
+                        type: r.type,
+                        hours: Number(r.hours || 0),
+                        projectId: r.projectId ?? null,
+                        note: r.note ?? null,
+                    }));
+                }
+                return next;
+            });
+
+            // Optionally keep period.totalHours in sync right away
+            setPeriod((p) => (p ? { ...p, totalHours: Number(weekTotal.toFixed(2)) } : p));
+
+            // Do NOT invalidate or reload — we trust our local state
+            // fetchedKeysRef.current.delete(`${from}|${to}`);  // <- remove this
+            // await reloadWeek();                               // <- and this
         } finally {
             setSaving(false);
         }
-    }, [getAccessToken, draftEntriesByDate, weekDatesISO, invalidateCurrentRange, reloadWeek]);
+    }, [
+        getAccessToken,
+        draftEntriesByDate,
+        weekDatesISO,
+        // weekTotal if you keep the period total in sync:
+        weekTotal,
+    ]);
 
     const handleCloseOrReopen = useCallback(async () => {
         try {
