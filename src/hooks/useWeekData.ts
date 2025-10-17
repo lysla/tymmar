@@ -1,59 +1,38 @@
 // src/hooks/useWeekData.ts
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { addDays, toISO, weekRangeISO, shallowEqualHours } from "../helpers";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { addDays, getMonday, toISO, weekRangeISO, shallowEqualHours } from "../helpers";
 import { askAIForHours, fetchSettings, fetchWeek, saveWeek, patchPeriod, type Settings, type PeriodInfo, type EntriesMap } from "../services";
-import { parseISO } from "date-fns";
+import { parseISO, startOfDay, startOfWeek, isBefore, isAfter, isWithinInterval } from "date-fns";
 
-/* ───────────────────────── ISO-only helpers (UTC safe) ───────────────────────── */
-
-/** Monday of a given date ISO (YYYY-MM-DD), computed in UTC. */
-function mondayOfISO(dateISO: string): string {
-    const d = new Date(dateISO + "T00:00:00Z");
-    const dow = d.getUTCDay(); // 0..6 (Sun..Sat)
-    const diff = (dow === 0 ? -6 : 1) - dow; // shift to Monday
-    d.setUTCDate(d.getUTCDate() + diff);
-    return d.toISOString().slice(0, 10);
-}
-
-/** Clamp a Monday ISO (YYYY-MM-DD) into [start,end] (inclusive), all ISO. */
 function clampMondayISO(mondayISO: string, startDateISO?: string | null, endDateISO?: string | null): string {
     if (!startDateISO && !endDateISO) return mondayISO;
-    const startMon = startDateISO ? mondayOfISO(startDateISO) : undefined;
-    const endMon = endDateISO ? mondayOfISO(endDateISO) : undefined;
-    if (startMon && mondayISO < startMon) return startMon;
-    if (endMon && mondayISO > endMon) return endMon;
+    const monday = parseISO(mondayISO);
+    const start = startDateISO ? parseISO(startDateISO) : undefined;
+    const end = endDateISO ? parseISO(endDateISO) : undefined;
+    const mondayOf = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
+    if (start && isBefore(monday, mondayOf(start))) return toISO(mondayOf(start));
+    if (end && isAfter(monday, mondayOf(end))) return toISO(mondayOf(end));
     return mondayISO;
 }
 
-/** ISO in [start,end] inclusive, pure string compare (YYYY-MM-DD). */
-function isoBetweenInclusive(iso: string, startISO?: string | null, endISO?: string | null) {
-    if (startISO && iso < startISO) return false;
-    if (endISO && iso > endISO) return false;
-    return true;
+function isDateAllowed(date: Date, startDateISO?: string | null, endDateISO?: string | null) {
+    if (!startDateISO && !endDateISO) return true;
+    const start = startDateISO ? parseISO(startDateISO) : new Date(-8640000000000000);
+    const end = endDateISO ? parseISO(endDateISO) : new Date(8640000000000000);
+    return isWithinInterval(date, { start, end });
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────── */
-
-export function useWeekData(getAccessToken: () => Promise<string | undefined>, opts?: { startDateISO?: string | null; endDateISO?: string | null }) {
+export function useWeekData(getAccessToken: () => Promise<string | undefined>, opts?: { startDateISO?: string | null; endDateISO?: string | null; boundsReady?: boolean }) {
     const startBound = opts?.startDateISO ?? null;
     const endBound = opts?.endDateISO ?? null;
+    const boundsReady = Boolean(opts?.boundsReady ?? true); // if not provided, treat as ready
 
-    // ───────── week state ─────────
-    // initial monday = today's monday (UTC) → clamped to bounds
+    // ——— week state (initialized only when bounds are ready) ———
     const [weekStart, setWeekStart] = useState<Date>(() => {
-        const todayISO = new Date().toISOString().slice(0, 10);
-        const initialMondayISO = mondayOfISO(todayISO);
-        const clampedISO = clampMondayISO(initialMondayISO, startBound, endBound);
-        return parseISO(clampedISO);
+        // If bounds aren't ready yet, don't clamp—use today; we will replace it once bounds arrive.
+        const initialMonday = getMonday(new Date());
+        return initialMonday;
     });
-
-    // if bounds arrive later or change, re-clamp
-    useEffect(() => {
-        const curISO = toISO(weekStart);
-        const clamped = clampMondayISO(curISO, startBound, endBound);
-        if (clamped !== curISO) setWeekStart(parseISO(clamped));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [startBound, endBound]);
 
     const weekStartISO = useMemo(() => toISO(weekStart), [weekStart]);
     const { from, to } = useMemo(() => weekRangeISO(weekStart), [weekStart]);
@@ -70,35 +49,27 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
     );
 
     const prevWeek = useCallback(() => {
-        setWeekStart((cur) => {
-            const prev = addDays(cur, -7);
-            const clampedISO = clampMondayISO(toISO(prev), startBound, endBound);
-            return parseISO(clampedISO);
-        });
+        setWeekStart((cur) => parseISO(clampMondayISO(toISO(addDays(cur, -7)), startBound, endBound)));
     }, [startBound, endBound]);
 
     const nextWeek = useCallback(() => {
-        setWeekStart((cur) => {
-            const next = addDays(cur, 7);
-            const clampedISO = clampMondayISO(toISO(next), startBound, endBound);
-            return parseISO(clampedISO);
-        });
+        setWeekStart((cur) => parseISO(clampMondayISO(toISO(addDays(cur, 7)), startBound, endBound)));
     }, [startBound, endBound]);
 
-    // ───────── settings ─────────
+    // ——— settings ———
     const [settings, setSettings] = useState<Settings | null>(null);
     const expectedByDay = useMemo(() => {
         if (!settings) return [8, 8, 8, 8, 8, 0, 0] as const;
         return [settings.mon, settings.tue, settings.wed, settings.thu, settings.fri, settings.sat, settings.sun] as const;
     }, [settings]);
 
-    // ───────── data ─────────
+    // ——— data ———
     const [period, setPeriod] = useState<PeriodInfo | null>(null);
     const [entries, setEntries] = useState<EntriesMap>({});
     const [loadingWeek, setLoadingWeek] = useState(true);
     const [weekErr, setWeekErr] = useState<string | null>(null);
 
-    // ───────── drafts ─────────
+    // ——— drafts ———
     const hoursView = useMemo(() => {
         const obj: Record<string, number> = {};
         for (const d of weekDatesISO) obj[d] = entries[d]?.totalHours ?? 0;
@@ -120,17 +91,16 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
     const weekExpected = expectedByDay.reduce((a, b) => a + b, 0);
     const weekPct = weekExpected > 0 ? Math.max(0, Math.min(100, Math.round((weekTotal / weekExpected) * 100))) : 0;
 
-    // ignore edits outside employment window
     const setVal = useCallback(
         (date: Date, v: number) => {
-            const iso = toISO(date);
-            if (!isoBetweenInclusive(iso, startBound, endBound)) return;
-            setHoursDraft((h) => ({ ...h, [iso]: v }));
+            if (!isDateAllowed(date, startBound, endBound)) return;
+            const k = toISO(date);
+            setHoursDraft((h) => ({ ...h, [k]: v }));
         },
         [startBound, endBound]
     );
 
-    // ───────── load settings once ─────────
+    // ——— load settings once (dedup naturally) ———
     useEffect(() => {
         let active = true;
         (async () => {
@@ -147,21 +117,38 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         };
     }, [getAccessToken]);
 
-    // ───────── load week ─────────
+    // ——— dedupe reloads ———
+    const fetchedKeysRef = useRef<Set<string>>(new Set());
+
     const reloadWeek = useCallback(async () => {
+        if (!boundsReady) return; // do nothing until bounds are ready
+        const key = `${from}|${to}`;
+        if (fetchedKeysRef.current.has(key)) return; // prevent duplicate same-range fetches (incl. StrictMode)
+        fetchedKeysRef.current.add(key);
+
         const token = await getAccessToken();
         const json = await fetchWeek(from, to, token);
         setPeriod(json.period);
         setEntries(json.entries || {});
-    }, [getAccessToken, from, to]);
+    }, [boundsReady, getAccessToken, from, to]);
 
+    // Trigger load when week range changes (after bounds are ready)
     useEffect(() => {
         let active = true;
         (async () => {
+            if (!boundsReady) return;
+
+            // Clamp first
+            const curISO = toISO(weekStart);
+            const clampedISO = clampMondayISO(curISO, startBound, endBound);
+            if (clampedISO !== curISO) {
+                setWeekStart(parseISO(clampedISO));
+                return; // skip fetch this cycle
+            }
+
             try {
                 setLoadingWeek(true);
                 setWeekErr(null);
-                setAiMsg(null);
                 await reloadWeek();
             } catch (e: any) {
                 if (active) setWeekErr(e?.message || "Failed to load week");
@@ -172,9 +159,9 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         return () => {
             active = false;
         };
-    }, [reloadWeek]);
+    }, [boundsReady, weekStart, startBound, endBound, reloadWeek]);
 
-    // ───────── actions ─────────
+    // ——— actions ———
     const [saving, setSaving] = useState(false);
     const [closing, setClosing] = useState(false);
 
@@ -190,24 +177,27 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 })),
                 token
             );
+            // Re-fetch this same range (won’t double thanks to dedupe Set per mount; clear key first)
+            fetchedKeysRef.current.delete(`${from}|${to}`);
             await reloadWeek();
         } finally {
             setSaving(false);
         }
-    }, [getAccessToken, hoursDraft, reloadWeek, weekDatesISO]);
+    }, [getAccessToken, hoursDraft, weekDatesISO, from, to, reloadWeek]);
 
     const handleCloseOrReopen = useCallback(async () => {
         try {
             setClosing(true);
             const token = await getAccessToken();
             await patchPeriod(isClosed ? "reopen" : "close", weekStartISO, token);
+            fetchedKeysRef.current.delete(`${from}|${to}`);
             await reloadWeek();
         } finally {
             setClosing(false);
         }
-    }, [getAccessToken, isClosed, weekStartISO, reloadWeek]);
+    }, [getAccessToken, isClosed, weekStartISO, from, to, reloadWeek]);
 
-    // ───────── AI ─────────
+    // ——— AI ———
     const [aiCmd, setAiCmd] = useState("");
     const [aiBusy, setAiBusy] = useState(false);
     const [aiMsg, setAiMsg] = useState<string | null>(null);
@@ -219,13 +209,16 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
 
             const token = await getAccessToken();
 
-            // only allow edits for the visible week
             const weekSet = new Set(weekDatesISO);
 
-            // also restrict to employment window (ISO)
-            const allowedDatesForAI = weekDatesISO.filter((iso) => isoBetweenInclusive(iso, startBound, endBound));
+            const isISOWithinEmployment = (iso: string) => {
+                const d = startOfDay(parseISO(iso));
+                if (startBound && isBefore(d, startBound)) return false;
+                if (endBound && isAfter(d, endBound)) return false;
+                return true;
+            };
+            const allowedDatesForAI = weekDatesISO.filter(isISOWithinEmployment);
 
-            // current entries context
             const currentEntries = Object.fromEntries(
                 weekDatesISO.map((d) => [
                     d,
@@ -243,14 +236,13 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 weekStart: weekStartISO,
                 expectedByDay: [...expectedByDay],
                 entries: currentEntries,
-                allowedDates: allowedDatesForAI, // only in-range dates
+                allowedDates: allowedDatesForAI,
                 mode,
                 token,
             });
 
-            // apply only suggestions for this week AND within employment window
             const filtered = suggestions
-                .filter((s) => weekSet.has(s.date) && isoBetweenInclusive(s.date, startBound, endBound))
+                .filter((s) => weekSet.has(s.date) && isISOWithinEmployment(s.date))
                 .map((s) => ({
                     date: s.date,
                     totalHours: Math.max(0, Math.min(24, Number(s.totalHours || 0))),
@@ -269,8 +261,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
 
             setAiCmd("");
             if (rationale) {
-                // optional: toast/log
-                // console.debug("AI rationale:", rationale);
+                // optional: setAiMsg(rationale);
             }
         } catch (e: any) {
             setAiMsg(e?.message || "AI failed");

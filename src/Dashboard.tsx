@@ -11,9 +11,12 @@ export default function Dashboard() {
     const { signOut, getAccessToken } = useAuth();
     const { status, employee, refetch } = useEmployee();
 
+    const boundsReady = status === "ok" && !!employee;
+
     const d = useWeekData(getAccessToken, {
         startDateISO: employee?.startDate ?? undefined,
         endDateISO: employee?.endDate ?? undefined,
+        boundsReady,
     });
 
     // auth/employee states
