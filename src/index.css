@@ -42,6 +42,9 @@
 .rdp-caption_label > svg {
     @apply ml-2;
 }
+.rdp-month_caption {
+    @apply font-normal pb-2;
+}
 
 html,
 body {

@@ -1,61 +1,59 @@
 // src/hooks/useWeekData.ts
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { addDays, getMonday, toISO, weekRangeISO, shallowEqualHours } from "../helpers";
+import { addDays, toISO, weekRangeISO, shallowEqualHours } from "../helpers";
 import { askAIForHours, fetchSettings, fetchWeek, saveWeek, patchPeriod, type Settings, type PeriodInfo, type EntriesMap } from "../services";
-import { parseISO, startOfWeek, isBefore, isAfter, isWithinInterval } from "date-fns";
+import { parseISO } from "date-fns";
 
-/** Clamp a Monday ISO string to the allowed [start,end] (both inclusive).
- *  If no bounds, return input.
- *  If before start => snap to start's Monday.
- *  If after end => snap to end's Monday.
- */
+/* ───────────────────────── ISO-only helpers (UTC safe) ───────────────────────── */
+
+/** Monday of a given date ISO (YYYY-MM-DD), computed in UTC. */
+function mondayOfISO(dateISO: string): string {
+    const d = new Date(dateISO + "T00:00:00Z");
+    const dow = d.getUTCDay(); // 0..6 (Sun..Sat)
+    const diff = (dow === 0 ? -6 : 1) - dow; // shift to Monday
+    d.setUTCDate(d.getUTCDate() + diff);
+    return d.toISOString().slice(0, 10);
+}
+
+/** Clamp a Monday ISO (YYYY-MM-DD) into [start,end] (inclusive), all ISO. */
 function clampMondayISO(mondayISO: string, startDateISO?: string | null, endDateISO?: string | null): string {
     if (!startDateISO && !endDateISO) return mondayISO;
-
-    const monday = parseISO(mondayISO);
-    const start = startDateISO ? parseISO(startDateISO) : undefined;
-    const end = endDateISO ? parseISO(endDateISO) : undefined;
-
-    const mondayOf = (d: Date) => startOfWeek(d, { weekStartsOn: 1 /* Monday */ });
-
-    if (start && isBefore(monday, mondayOf(start))) {
-        return toISO(mondayOf(start));
-    }
-    if (end && isAfter(monday, mondayOf(end))) {
-        return toISO(mondayOf(end));
-    }
+    const startMon = startDateISO ? mondayOfISO(startDateISO) : undefined;
+    const endMon = endDateISO ? mondayOfISO(endDateISO) : undefined;
+    if (startMon && mondayISO < startMon) return startMon;
+    if (endMon && mondayISO > endMon) return endMon;
     return mondayISO;
 }
 
-/** Is a given date (not necessarily Monday) inside the allowed [start,end] inclusive? */
-function isDateAllowed(date: Date, startDateISO?: string | null, endDateISO?: string | null) {
-    if (!startDateISO && !endDateISO) return true;
-    const start = startDateISO ? parseISO(startDateISO) : new Date(-8640000000000000);
-    const end = endDateISO ? parseISO(endDateISO) : new Date(8640000000000000);
-    return isWithinInterval(date, { start, end });
+/** ISO in [start,end] inclusive, pure string compare (YYYY-MM-DD). */
+function isoBetweenInclusive(iso: string, startISO?: string | null, endISO?: string | null) {
+    if (startISO && iso < startISO) return false;
+    if (endISO && iso > endISO) return false;
+    return true;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────── */
 
 export function useWeekData(getAccessToken: () => Promise<string | undefined>, opts?: { startDateISO?: string | null; endDateISO?: string | null }) {
     const startBound = opts?.startDateISO ?? null;
     const endBound = opts?.endDateISO ?? null;
 
-    // ───────────────── week state ─────────────────
-    // Initial Monday = today’s Monday, then clamped to bounds
+    // ───────── week state ─────────
+    // initial monday = today's monday (UTC) → clamped to bounds
     const [weekStart, setWeekStart] = useState<Date>(() => {
-        const initialMonday = getMonday(new Date());
-        const initialMondayISO = toISO(initialMonday);
-        const clamped = clampMondayISO(initialMondayISO, startBound, endBound);
-        return parseISO(clamped);
+        const todayISO = new Date().toISOString().slice(0, 10);
+        const initialMondayISO = mondayOfISO(todayISO);
+        const clampedISO = clampMondayISO(initialMondayISO, startBound, endBound);
+        return parseISO(clampedISO);
     });
 
-    // If bounds arrive later or change, re-clamp the current week
+    // if bounds arrive later or change, re-clamp
     useEffect(() => {
-        const currentISO = toISO(weekStart);
-        const clamped = clampMondayISO(currentISO, startBound, endBound);
-        if (clamped !== currentISO) {
-            setWeekStart(parseISO(clamped));
-        }
-    }, [startBound, endBound]); // eslint-disable-line react-hooks/exhaustive-deps
+        const curISO = toISO(weekStart);
+        const clamped = clampMondayISO(curISO, startBound, endBound);
+        if (clamped !== curISO) setWeekStart(parseISO(clamped));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [startBound, endBound]);
 
     const weekStartISO = useMemo(() => toISO(weekStart), [weekStart]);
     const { from, to } = useMemo(() => weekRangeISO(weekStart), [weekStart]);
@@ -87,20 +85,20 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         });
     }, [startBound, endBound]);
 
-    // ───────────────── settings ─────────────────
+    // ───────── settings ─────────
     const [settings, setSettings] = useState<Settings | null>(null);
     const expectedByDay = useMemo(() => {
         if (!settings) return [8, 8, 8, 8, 8, 0, 0] as const;
         return [settings.mon, settings.tue, settings.wed, settings.thu, settings.fri, settings.sat, settings.sun] as const;
     }, [settings]);
 
-    // ───────────────── data ─────────────────
+    // ───────── data ─────────
     const [period, setPeriod] = useState<PeriodInfo | null>(null);
     const [entries, setEntries] = useState<EntriesMap>({});
     const [loadingWeek, setLoadingWeek] = useState(true);
     const [weekErr, setWeekErr] = useState<string | null>(null);
 
-    // ───────────────── drafts ─────────────────
+    // ───────── drafts ─────────
     const hoursView = useMemo(() => {
         const obj: Record<string, number> = {};
         for (const d of weekDatesISO) obj[d] = entries[d]?.totalHours ?? 0;
@@ -122,17 +120,17 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
     const weekExpected = expectedByDay.reduce((a, b) => a + b, 0);
     const weekPct = weekExpected > 0 ? Math.max(0, Math.min(100, Math.round((weekTotal / weekExpected) * 100))) : 0;
 
+    // ignore edits outside employment window
     const setVal = useCallback(
         (date: Date, v: number) => {
-            // For safety, ignore edits when date outside allowed bounds
-            if (!isDateAllowed(date, startBound, endBound)) return;
-            const k = toISO(date);
-            setHoursDraft((h) => ({ ...h, [k]: v }));
+            const iso = toISO(date);
+            if (!isoBetweenInclusive(iso, startBound, endBound)) return;
+            setHoursDraft((h) => ({ ...h, [iso]: v }));
         },
         [startBound, endBound]
     );
 
-    // ───────────────── load settings once ─────────────────
+    // ───────── load settings once ─────────
     useEffect(() => {
         let active = true;
         (async () => {
@@ -149,7 +147,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         };
     }, [getAccessToken]);
 
-    // ───────────────── load week ─────────────────
+    // ───────── load week ─────────
     const reloadWeek = useCallback(async () => {
         const token = await getAccessToken();
         const json = await fetchWeek(from, to, token);
@@ -176,7 +174,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         };
     }, [reloadWeek]);
 
-    // ───────────────── actions ─────────────────
+    // ───────── actions ─────────
     const [saving, setSaving] = useState(false);
     const [closing, setClosing] = useState(false);
 
@@ -209,7 +207,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         }
     }, [getAccessToken, isClosed, weekStartISO, reloadWeek]);
 
-    // ───────────────── AI ─────────────────
+    // ───────── AI ─────────
     const [aiCmd, setAiCmd] = useState("");
     const [aiBusy, setAiBusy] = useState(false);
     const [aiMsg, setAiMsg] = useState<string | null>(null);
@@ -221,9 +219,13 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
 
             const token = await getAccessToken();
 
-            // Only allow edits for the currently visible week
+            // only allow edits for the visible week
             const weekSet = new Set(weekDatesISO);
 
+            // also restrict to employment window (ISO)
+            const allowedDatesForAI = weekDatesISO.filter((iso) => isoBetweenInclusive(iso, startBound, endBound));
+
+            // current entries context
             const currentEntries = Object.fromEntries(
                 weekDatesISO.map((d) => [
                     d,
@@ -241,13 +243,14 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 weekStart: weekStartISO,
                 expectedByDay: [...expectedByDay],
                 entries: currentEntries,
-                allowedDates: weekDatesISO,
+                allowedDates: allowedDatesForAI, // only in-range dates
                 mode,
                 token,
             });
 
+            // apply only suggestions for this week AND within employment window
             const filtered = suggestions
-                .filter((s) => weekSet.has(s.date))
+                .filter((s) => weekSet.has(s.date) && isoBetweenInclusive(s.date, startBound, endBound))
                 .map((s) => ({
                     date: s.date,
                     totalHours: Math.max(0, Math.min(24, Number(s.totalHours || 0))),
@@ -266,6 +269,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
 
             setAiCmd("");
             if (rationale) {
+                // optional: toast/log
                 // console.debug("AI rationale:", rationale);
             }
         } catch (e: any) {
@@ -273,7 +277,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         } finally {
             setAiBusy(false);
         }
-    }, [aiCmd, entries, expectedByDay, getAccessToken, hoursDraft, weekDatesISO, weekStartISO]);
+    }, [aiCmd, entries, expectedByDay, getAccessToken, hoursDraft, weekDatesISO, weekStartISO, startBound, endBound]);
 
     return {
         // week navigation & range

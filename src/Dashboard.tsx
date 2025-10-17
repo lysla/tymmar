@@ -108,7 +108,7 @@ export default function Dashboard() {
                     )}
 
                     {/* grid */}
-                    {!d.loadingWeek && !d.weekErr && <WeekGrid days={d.days} expectedByDay={d.expectedByDay} values={d.hoursDraft} onChange={d.setVal} disabled={d.isClosed} />}
+                    {!d.loadingWeek && !d.weekErr && <WeekGrid days={d.days} expectedByDay={d.expectedByDay} values={d.hoursDraft} onChange={d.setVal} disabled={d.isClosed} startDateISO={employee?.startDate ?? undefined} endDateISO={employee?.endDate ?? undefined} />}
 
                     {/* unsaved edits */}
                     {!d.loadingWeek && !d.weekErr && !d.isClosed && d.isDirty && (

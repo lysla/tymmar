@@ -26,5 +26,5 @@ export function weekRangeISO(weekStart: Date): { from: string; to: string } {
 }
 
 export function fmtDayLabel(d: Date): string {
-    return format(d, "EEE"); // Mon, Tue, ...
+    return format(d, "EEE dd/MM"); // Mon, Tue, ...
 }
