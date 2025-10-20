@@ -87,7 +87,7 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
 
     return (
         <>
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 pt-8">
                 <header className="flex items-center justify-between bg-white px-8 py-6">
                     <h1>
                         <span className="font-serif uppercase">Hello</span> {employeeName}!
@@ -98,7 +98,7 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
                 </header>
 
                 <div className="bg-white mt-8 p-8">
-                    <div className="flex items-start gap-x-16 pb-8 border-b border-light">
+                    <div className="flex max-lg:flex-col max-lg:gap-y-8 items-start gap-x-16 md:pb-8 border-b border-light">
                         <div className="w-auto">
                             {/* Week navigator (inline calendar) */}
                             <WeekNavigator />
@@ -126,9 +126,9 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
                                         </span>
                                         <p className="text-xs text-primary leading-[1]">{weekPct}%</p>
                                     </div>
-                                    <div className="flex items-center gap-x-8">
-                                        <div className="text-xs text-center mt-4 text-primary">Expected total hours: {d.weekExpected}</div>
-                                        <div className="text-xs text-center mt-4 text-dark">Registered: {d.weekTotal.toFixed(2)}</div>
+                                    <div className="flex max-md:flex-col md:items-center gap-x-8">
+                                        <div className="text-xs md:text-center mt-4 text-primary">Expected total hours: {d.weekExpected}</div>
+                                        <div className="text-xs md:text-center mt-4 text-dark">Registered: {d.weekTotal.toFixed(2)}</div>
                                     </div>
                                 </div>
                             )}
@@ -154,7 +154,7 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
                     )}
                 </div>
 
-                <footer className="px-16 pt-8 mt-auto">
+                <footer className="px-16 py-8 mt-auto">
                     <p className="text-center text-xs">&copy; {new Date().getFullYear()} ELVA11. All rights reserved.</p>
                 </footer>
             </div>
