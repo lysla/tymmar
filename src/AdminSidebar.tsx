@@ -25,8 +25,12 @@ export default function AdminSidebar() {
                 <Link to="/admin" className={isActive(["/admin", "/admin/add-user", "/admin/employee/:id/edit"])}>
                     Employees
                 </Link>
-                <a className="pointer-events-none opacity-50">Settings</a>
-                <a className="pointer-events-none opacity-50">Reports</a>
+                <Link to="/admin/settings" className={isActive(["/admin/settings", "/admin/add-setting", "/admin/setting/:id/edit"])}>
+                    Settings
+                </Link>
+                <Link to="/admin/reports" className={isActive(["/admin/reports"])}>
+                    Reports
+                </Link>
             </nav>
         </aside>
     );

@@ -67,6 +67,9 @@ body > div:first-child {
 .input {
     @apply outline-none border border-dark px-4 py-2 w-full;
 }
+.input::placeholder {
+    @apply text-dark/40;
+}
 .input--alt {
     @apply bg-light border-0;
 }
@@ -162,5 +165,5 @@ body > div:first-child {
     @apply overflow-x-auto;
 }
 .weekgrid > div > div {
-    @apply min-w-[200px];
+    @apply min-w-[150px] grow;
 }

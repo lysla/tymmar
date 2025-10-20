@@ -8,6 +8,9 @@ import Dashboard from "./Dashboard";
 import AdminDashboard from "./AdminDashboard";
 import AdminAddEmployee from "./AdminAddEmployee";
 import AdminEditEmployee from "./AdminEditEmployee";
+import AdminSettings from "./AdminSettings";
+import AdminAddSetting from "./AdminAddSetting";
+import AdminEditSetting from "./AdminEditSetting";
 import AdminLayout from "./AdminLayout";
 
 export default function AppRouter() {
@@ -46,6 +49,9 @@ export default function AppRouter() {
                 <Route index element={<AdminDashboard />} />
                 <Route path="add-user" element={<AdminAddEmployee />} />
                 <Route path="employee/:id/edit" element={<AdminEditEmployee />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="add-setting" element={<AdminAddSetting />} />
+                <Route path="setting/:id/edit" element={<AdminEditSetting />} />
             </Route>
 
             <Route path="/admin/signin" element={user ? isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/" replace /> : <AdminSignIn />} />

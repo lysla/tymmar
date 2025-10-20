@@ -1,4 +1,17 @@
 // src/types/db.ts
+export type Setting = {
+    id: number;
+    mon_hours: number;
+    tue_hours: number;
+    wed_hours: number;
+    thu_hours: number;
+    fri_hours: number;
+    sat_hours: number;
+    sun_hours: number;
+    isDefault: boolean;
+    updatedAt: string;
+};
+
 export type Employee = {
     id: number;
     name: string;

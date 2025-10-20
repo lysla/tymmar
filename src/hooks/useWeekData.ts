@@ -166,15 +166,46 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
     // ——— load settings once ———
     useEffect(() => {
         let active = true;
+
+        const toLocalSettings = (src: any): Settings => ({
+            mon: Number(src.mon ?? src.mon_hours ?? 8),
+            tue: Number(src.tue ?? src.tue_hours ?? 8),
+            wed: Number(src.wed ?? src.wed_hours ?? 8),
+            thu: Number(src.thu ?? src.thu_hours ?? 8),
+            fri: Number(src.fri ?? src.fri_hours ?? 8),
+            sat: Number(src.sat ?? src.sat_hours ?? 0),
+            sun: Number(src.sun ?? src.sun_hours ?? 0),
+        });
+
         (async () => {
             try {
                 const token = await getAccessToken();
                 const json = await fetchSettings(token);
-                if (active) setSettings(json.settings);
+
+                // json can be:
+                // - { settings: [...] }  (admin GET list)
+                // - { settings: {...} }  (old shape)
+                // - { mon_hours: ..., ... } or { mon: ..., ... } (non-admin effective)
+                let chosen: any | null = null;
+
+                if (json?.settings && Array.isArray(json.settings)) {
+                    // Admin list → pick default, else last
+                    chosen = json.settings.find((s: any) => s.isDefault) ?? json.settings[json.settings.length - 1] ?? null;
+                } else if (json?.settings && typeof json.settings === "object") {
+                    chosen = json.settings;
+                } else if (json && typeof json === "object") {
+                    // Non-admin effective returns flattened object
+                    chosen = json;
+                }
+
+                if (active && chosen) {
+                    setSettings(toLocalSettings(chosen));
+                }
             } catch {
-                /* ignore */
+                /* ignore → fallback stays [8,8,8,8,8,0,0] */
             }
         })();
+
         return () => {
             active = false;
         };
