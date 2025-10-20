@@ -52,6 +52,39 @@ export default function Dashboard() {
 function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; employeeName: string }) {
     const d = useWeekDataContext();
 
+    // ------- Weekly stacked progress (work/sick/time_off) with >100% support -------
+    const TYPE_COLORS: Record<string, string> = {
+        work: "bg-primary",
+        sick: "bg-secondary",
+        time_off: "bg-tertiary",
+    };
+
+    // Aggregate hours by type across all days of the current week
+    const byTypeTotals: Record<string, number> = (() => {
+        const acc: Record<string, number> = {};
+        const map = d.draftEntriesByDate || {};
+        for (const iso in map) {
+            const rows = map[iso] || [];
+            for (const r of rows) {
+                const t = (r.type as string) || "work";
+                const h = Number(r.hours || 0);
+                acc[t] = (acc[t] || 0) + h;
+            }
+        }
+        return acc;
+    })();
+
+    const weekExpected = d.weekExpected || 0;
+    const weekTotal = Number(d.weekTotal || 0);
+    const weekPct = weekExpected > 0 ? Math.round((weekTotal / weekExpected) * 100) : 0; // allow >100%
+
+    const TYPE_ORDER = ["work", "sick", "time_off"];
+    const weekSegments = TYPE_ORDER.map((type) => {
+        const hours = byTypeTotals[type] || 0;
+        const widthPct = weekExpected > 0 ? (hours / weekExpected) * 100 : 0;
+        return { type, hours, widthPct };
+    }).filter((s) => s.hours > 0);
+
     return (
         <>
             <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
@@ -86,10 +119,12 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
                             {!d.weekErr && !d.loadingWeek && (
                                 <div className="py-8">
                                     <div className="flex items-end">
-                                        <span className="progress progress--alt [ mr-2 ]" title={`${d.weekPct}%`}>
-                                            <span className="progress__bar progress__bar--alt" style={{ width: `${d.weekPct}%` }} />
+                                        <span className="progress progress--alt [ mr-2 ]" title={`${weekPct}%`}>
+                                            {weekSegments.map((seg, i) => (
+                                                <span key={`${seg.type}-${i}`} className={`progress__bar progress__bar--alt ${TYPE_COLORS[seg.type]}`} style={{ width: `${seg.widthPct}%` }} />
+                                            ))}
                                         </span>
-                                        <p className="text-xs text-primary leading-[1]">{d.weekPct}%</p>
+                                        <p className="text-xs text-primary leading-[1]">{weekPct}%</p>
                                     </div>
                                     <div className="flex items-center gap-x-8">
                                         <div className="text-xs text-center mt-4 text-primary">Expected total hours: {d.weekExpected}</div>

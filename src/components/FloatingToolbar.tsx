@@ -16,7 +16,7 @@ export default function FloatingToolbar() {
             )}
 
             <button className="button button--alt2" title={isClosed ? "Reopen period" : "Close period"} aria-label={isClosed ? "Reopen period" : "Close period"} onClick={handleCloseOrReopen} disabled={disabled || closing}>
-                {closing ? (isClosed ? "Reopening…" : "Closing…") : isClosed ? "Reopen period" : "Close period"}
+                {closing ? "Loading…" : isClosed ? "Reopen period" : "Close period"}
             </button>
         </div>
     );
