@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { addDays, getMonday, toISO, weekRangeISO, clampMondayISO, isDateAllowed } from "../helpers";
 import { fetchSettings, patchPeriod, fetchWeek, replaceDayEntries, fetchWeekSummaries, type Settings, type PeriodInfo, type EntriesByDate } from "../services";
 import { parseISO, startOfDay, isBefore, isAfter, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
-import type { DayEntry as DayEntryType, DayType, WeekSummary } from "../types";
+import type { DayEntry as DayEntryType, WeekSummary } from "../types";
 
 type DayEntry = Partial<DayEntryType>;
 
@@ -396,26 +396,52 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                     allowedDates,
                 }),
             });
+
             const { suggestions, error } = await r.json();
             if (!r.ok) throw new Error(error || "AI failed");
 
-            const filtered: { date: string; hours: number; type: DayType }[] = (suggestions ?? [])
-                .filter((s: any) => weekSet.has(s.date) && inEmployment(s.date))
-                .map((s: any) => ({
-                    date: s.date,
-                    hours: Math.max(0, Math.min(24, Number(s.totalHours || 0))),
-                    type: (s.type ?? "work") as DayType,
-                }));
+            type DayType = "work" | "sick" | "time_off";
 
-            if (filtered.length === 0) {
+            // Normalize both new and old API shapes:
+            // - new: { date, entries: [{hours, type}, ...] }
+            // - old: { date, totalHours, type }
+            const normalized: { date: string; entries: { hours: number; type: DayType }[] }[] = (suggestions ?? [])
+                .map((s: any) => {
+                    const date = String(s.date).trim();
+                    if (Array.isArray(s.entries)) {
+                        // new shape
+                        const entries = s.entries
+                            .map((e: any) => ({
+                                hours: Math.max(0, Math.min(24, Number(e.hours || 0))),
+                                type: (e.type ?? "work") as DayType,
+                            }))
+                            .filter((e: any) => e.hours > 0);
+                        return { date, entries };
+                    } else {
+                        // old shape fallback
+                        const hours = Math.max(0, Math.min(24, Number(s.totalHours || 0)));
+                        const type = (s.type ?? "work") as DayType;
+                        const entries = hours > 0 ? [{ hours, type }] : [];
+                        return { date, entries };
+                    }
+                })
+                .filter((row: { date: string; entries: { hours: number; type: DayType }[] }) => weekSet.has(row.date) && inEmployment(row.date) && row.entries.length > 0);
+
+            if (normalized.length === 0) {
                 setAiMsg("AI returned no applicable changes for this week.");
                 return;
             }
 
+            // Apply: replace the day's entries with the AI-proposed list
             setDraftEntriesByDate((cur) => {
                 const next = { ...cur };
-                for (const f of filtered) {
-                    next[f.date] = [{ type: f.type, hours: f.hours, projectId: null, note: null }];
+                for (const row of normalized) {
+                    next[row.date] = row.entries.map((e) => ({
+                        type: e.type,
+                        hours: e.hours,
+                        projectId: null,
+                        note: null,
+                    }));
                 }
                 return next;
             });
