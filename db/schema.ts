@@ -120,25 +120,3 @@ export const periods = pgTable(
     },
     (t) => [unique("periods_employee_week_uk").on(t.employeeId, t.weekKey), index("periods_employee_idx").on(t.employeeId), index("periods_week_key_idx").on(t.weekKey), index("periods_week_start_idx").on(t.weekStartDate)]
 );
-
-/* --- TODEL soon -- hours: 1 row per employee per day, total hours only --- */
-export const hours = pgTable(
-    "hours",
-    {
-        id: serial("id").primaryKey(),
-        employeeId: integer("employee_id")
-            .references(() => employees.id, { onDelete: "cascade" })
-            .notNull(),
-
-        workDate: date("work_date").notNull(),
-
-        // numeric(5,2): e.g., 7.50
-        totalHours: numeric("total_hours", { precision: 5, scale: 2 }).notNull().default("0"),
-
-        type: dayTypeEnum("type").notNull().default("work"),
-
-        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-    },
-    (t) => [index("hours_employee_idx").on(t.employeeId), index("hours_employee_date_idx").on(t.employeeId, t.workDate), unique("hours_employee_date_uk").on(t.employeeId, t.workDate)]
-);

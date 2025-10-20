@@ -383,17 +383,6 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
             };
             const allowedDates = weekDatesISO.filter(inEmployment);
 
-            const currentTotals = Object.fromEntries(
-                weekDatesISO.map((d) => {
-                    const rows = draftEntriesByDate[d] ?? [];
-                    const total = rows.reduce((s, r) => s + Number(r.hours || 0), 0);
-                    const t = (rows[0]?.type ?? "work") as DayType;
-                    return [d, { totalHours: total, type: t }];
-                })
-            );
-
-            const mode = /\b(missing|only\s+missing|don['’]t\s+change|keep\s+existing)\b/i.test(aiCmd) ? "fill-missing" : "overwrite-week";
-
             const r = await fetch("/api/ai", {
                 method: "POST",
                 headers: {
@@ -404,9 +393,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                     command: aiCmd || "Fill a normal week based on expected hours.",
                     weekStart: weekStartISO,
                     expectedByDay: [...expectedByDay],
-                    entries: currentTotals,
                     allowedDates,
-                    mode,
                 }),
             });
             const { suggestions, error } = await r.json();
@@ -439,7 +426,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         } finally {
             setAiBusy(false);
         }
-    }, [aiCmd, getAccessToken, draftEntriesByDate, expectedByDay, weekDatesISO, weekStartISO, startBound, endBound]);
+    }, [aiCmd, getAccessToken, expectedByDay, weekDatesISO, weekStartISO, startBound, endBound]);
 
     return {
         // week navigation & range
