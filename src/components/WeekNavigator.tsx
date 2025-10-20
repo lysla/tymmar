@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { DayPicker } from "react-day-picker";
-import { startOfWeek, endOfWeek, parseISO, startOfMonth, endOfMonth, isWithinInterval, isMonday as dfIsMonday, format } from "date-fns";
+import { startOfWeek, endOfWeek, parseISO, startOfMonth, endOfMonth, isWithinInterval, isMonday as dfIsMonday } from "date-fns";
 import type { Interval } from "date-fns";
 import { enGB } from "date-fns/locale";
 import { getMonday, toISO } from "../helpers";
@@ -80,8 +80,6 @@ export default function WeekNavigator() {
 
     return (
         <div className={loadingWeek ? "pointer-events-none opacity-60" : ""}>
-            <div className="mb-2 text-xs text-secondary">{format(visibleMonth, "MMMM yyyy")}</div>
-
             <DayPicker
                 key={weekStartISO}
                 mode="single"
