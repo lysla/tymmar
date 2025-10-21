@@ -99,7 +99,7 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
             <div className="w-full min-h-dvh bg-paper flex flex-col px-16 pt-8">
                 <header className="flex items-center justify-between bg-white px-8 py-6">
                     <h1>
-                        <span className="font-serif uppercase">Hello</span> {employeeName}!
+                        <span className="font-serif uppercase">Hello</span> <span className="bg-primary text-light px-1">{employeeName}</span> <span className="font-serif uppercase">!</span>
                     </h1>
                     <button className="link" onClick={onSignOut}>
                         Sign out
