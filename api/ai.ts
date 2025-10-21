@@ -5,35 +5,48 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
+import { requireUser } from "./_auth";
 
 /* ------------------------ Schemas ------------------------ */
 
-const EntrySchema = z.object({
-    hours: z.number().min(0.01).max(24), // no zero-hour entries
-    type: z.enum(["work", "sick", "time_off"]),
-});
-const DaySchema = z.object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    expectedHours: z.number().min(0).max(24),
-    weekdayName: z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),
-    entries: z.array(EntrySchema),
-});
+const EntrySchema = z
+    .object({
+        hours: z.number().min(0.01).max(24), // no zero-hour entries
+        type: z.enum(["work", "sick", "time_off"]),
+    })
+    .strict();
 
-const OutputSchema = z.object({
-    suggestions: z.array(DaySchema).length(7),
-    rationale: z.string().optional(),
-});
+const DaySchema = z
+    .object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        expectedHours: z.number().min(0).max(24),
+        weekdayName: z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),
+        entries: z.array(EntrySchema),
+    })
+    .strict();
 
-const InputSchema = z.object({
-    command: z.string().min(1),
-    currentEntries: z.array(DaySchema).length(7),
-});
+const OutputSchema = z
+    .object({
+        suggestions: z.array(DaySchema).length(7),
+        rationale: z.string().optional(),
+    })
+    .strict();
+
+const InputSchema = z
+    .object({
+        command: z.string().min(1),
+        currentEntries: z.array(DaySchema).length(7),
+    })
+    .strict();
 
 /* ------------------------ Handler ------------------------ */
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+
+        // Require authenticated user
+        await requireUser(req);
 
         const parsed = InputSchema.safeParse(req.body ?? {});
         if (!parsed.success) {
@@ -75,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             system,
             messages: [userMsg],
             schema: OutputSchema,
-            temperature: 0.8,
+            temperature: 0.25, // tighter adherence to rules/schema
         });
 
         return res.status(200).json({
