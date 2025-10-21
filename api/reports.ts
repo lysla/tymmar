@@ -7,6 +7,24 @@ import { requireAdmin } from "./_auth";
 import { employees, dayEntries, dayExpectations, periods } from "../db/schema";
 import { and, eq, gte, lte, lt, sql, inArray } from "drizzle-orm";
 
+/* ---------------- CSV helper ---------------- */
+function toCSV<T extends Record<string, any>>(rows: T[], headers?: string[]) {
+    // UTF-8 BOM for Excel friendliness
+    const BOM = "\uFEFF";
+    if (!rows.length) return BOM + (headers?.join(",") ?? "");
+    const cols = headers ?? Object.keys(rows[0] as any);
+
+    const escape = (v: any) => {
+        if (v === null || v === undefined) return "";
+        const s = String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const head = cols.join(",");
+    const body = rows.map((r) => cols.map((c) => escape(r[c])).join(",")).join("\n");
+    return BOM + head + "\n" + body;
+}
+
 /* ---------------- helpers ---------------- */
 function isISO(s?: string): s is string {
     return Boolean(s && /^\d{4}-\d{2}-\d{2}$/.test(s));
@@ -35,8 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (req.method !== "GET") return res.status(405).send("Method Not Allowed");
         await requireAdmin(req);
 
-        const { report } = req.query as Record<string, string | undefined>;
+        const { report, format } = req.query as Record<string, string | undefined>;
         if (!report) return res.status(400).json({ error: "Missing ?report=" });
+        const wantsCSV = (format ?? "").toLowerCase() === "csv" || req.headers.accept === "text/csv";
 
         if (report === "by-dates") {
             const { from, to, employeeId } = req.query as Record<string, string | undefined>;
@@ -44,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: "from/to must be YYYY-MM-DD" });
             }
 
-            // 1) Which employees are in scope?
+            // 1) employees in scope
             let empWhere = sql`TRUE`;
             if (employeeId && employeeId !== "all") {
                 const idNum = Number(employeeId);
@@ -57,10 +76,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const emps = await db.select({ id: employees.id, name: employees.name, surname: employees.surname }).from(employees).where(empWhere);
 
             if (emps.length === 0) {
+                if (wantsCSV) {
+                    const csv = toCSV([], ["date", "employeeId", "employeeName", "expectedHours", "workHours", "sickHours", "timeOffHours", "totalHours", "extraWorkHours", "hasSick", "hasTimeOff"]);
+                    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+                    res.setHeader("Content-Disposition", `attachment; filename="report-by-dates.csv"`);
+                    return res.status(200).send(csv);
+                }
                 return res.status(200).json({ rows: [] });
             }
 
-            // 2) Fetch expectation snapshots (for any day that has them)
+            // 2) expectation snapshots
             const expRows = await db
                 .select({
                     employeeId: dayExpectations.employeeId,
@@ -79,20 +104,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     )
                 );
 
-            // 3) Fetch aggregated entries per (employee, date) in range
+            // 3) aggregated entries per (employee, date)
             const agg = await db
                 .select({
                     employeeId: dayEntries.employeeId,
                     date: dayEntries.workDate,
                     workHours: sql<number>`
-        COALESCE(SUM(CASE WHEN ${dayEntries.type} = 'work' THEN ${dayEntries.hours} ELSE 0 END), 0)
-      `,
+                        COALESCE(SUM(CASE WHEN ${dayEntries.type} = 'work' THEN ${dayEntries.hours} ELSE 0 END), 0)
+                    `,
                     sickHours: sql<number>`
-        COALESCE(SUM(CASE WHEN ${dayEntries.type} = 'sick' THEN ${dayEntries.hours} ELSE 0 END), 0)
-      `,
+                        COALESCE(SUM(CASE WHEN ${dayEntries.type} = 'sick' THEN ${dayEntries.hours} ELSE 0 END), 0)
+                    `,
                     timeOffHours: sql<number>`
-        COALESCE(SUM(CASE WHEN ${dayEntries.type} = 'time_off' THEN ${dayEntries.hours} ELSE 0 END), 0)
-      `,
+                        COALESCE(SUM(CASE WHEN ${dayEntries.type} = 'time_off' THEN ${dayEntries.hours} ELSE 0 END), 0)
+                    `,
                 })
                 .from(dayEntries)
                 .where(
@@ -107,12 +132,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 )
                 .groupBy(dayEntries.employeeId, dayEntries.workDate);
 
-            // 4) Index expectations and aggregates for fast lookup
-            const expMap = new Map<string, number>(); // key: `${empId}|${date}` -> expectedHours
+            // 4) index lookups
+            const expMap = new Map<string, number>();
             for (const r of expRows) {
                 expMap.set(`${r.employeeId}|${String(r.date)}`, Number(r.expectedHours ?? 0));
             }
-
             const aggMap = new Map<string, { work: number; sick: number; toff: number }>();
             for (const r of agg) {
                 aggMap.set(`${r.employeeId}|${String(r.date)}`, {
@@ -122,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
 
-            // 5) Build date list (inclusive)
+            // 5) date list
             const dates: string[] = [];
             {
                 const start = new Date(from + "T00:00:00Z");
@@ -132,31 +156,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
-            // 6) Stitch final rows (including days with NO entries)
-            const result: Array<{
-                employeeId: number;
-                date: string;
-                employeeName: string;
-                expectedHours: number;
-                workHours: number;
-                sickHours: number;
-                timeOffHours: number;
-                totalHours: number;
-                extraWorkHours: number;
-                hasSick: boolean;
-                hasTimeOff: boolean;
-            }> = [];
-
-            for (const e of emps) {
-                for (const date of dates) {
+            // 6) stitch rows
+            const result = emps.flatMap((e) =>
+                dates.map((date) => {
                     const aggKey = `${e.id}|${date}`;
                     const a = aggMap.get(aggKey) ?? { work: 0, sick: 0, toff: 0 };
-                    const expected = expMap.get(aggKey) ?? 0; // if you want to fall back to settings, do that here
-
+                    const expected = expMap.get(aggKey) ?? 0;
                     const total = a.work + a.sick + a.toff;
                     const extraWork = Math.max(0, a.work - expected);
-
-                    result.push({
+                    return {
                         employeeId: e.id,
                         date,
                         employeeName: `${e.surname} ${e.name}`,
@@ -168,16 +176,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         extraWorkHours: extraWork,
                         hasSick: a.sick > 0,
                         hasTimeOff: a.toff > 0,
-                    });
-                }
-            }
+                    };
+                })
+            );
 
-            // Sort by date, employee surname/name
             result.sort((a, b) => {
                 if (a.date !== b.date) return a.date < b.date ? -1 : 1;
                 if (a.employeeName !== b.employeeName) return a.employeeName < b.employeeName ? -1 : 1;
                 return 0;
             });
+
+            if (wantsCSV) {
+                const csv = toCSV(result, ["date", "employeeId", "employeeName", "expectedHours", "workHours", "sickHours", "timeOffHours", "totalHours", "extraWorkHours", "hasSick", "hasTimeOff"]);
+                res.setHeader("Content-Type", "text/csv; charset=utf-8");
+                res.setHeader("Content-Disposition", `attachment; filename="report-by-dates.csv"`);
+                return res.status(200).send(csv);
+            }
 
             return res.status(200).json({ rows: result });
         }
@@ -224,6 +238,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 weekStartDate: String(r.weekStartDate),
                 totalHours: Number(r.totalHours ?? 0),
             }));
+
+            if (wantsCSV) {
+                const csv = toCSV(rows, ["employeeId", "employeeName", "weekKey", "weekStartDate", "totalHours"]);
+                res.setHeader("Content-Type", "text/csv; charset=utf-8");
+                res.setHeader("Content-Disposition", `attachment; filename="report-missing-periods.csv"`);
+                return res.status(200).send(csv);
+            }
 
             return res.status(200).json({ refMonday, count: rows.length, rows });
         }

@@ -25,7 +25,6 @@ type MissingPeriodsRow = {
 };
 
 type EmployeeMini = { id: number; name: string; surname: string };
-
 type ReportKind = "by-dates" | "missing-periods";
 
 export default function AdminReports() {
@@ -39,7 +38,6 @@ export default function AdminReports() {
         const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
         return x.toISOString().slice(0, 10);
     }, []);
-
     const [from, setFrom] = useState<string>(monthStartISO);
     const [to, setTo] = useState<string>(todayISO);
     const [employeeId, setEmployeeId] = useState<string>("all");
@@ -56,7 +54,7 @@ export default function AdminReports() {
     const [before, setBefore] = useState<string>(thisMondayISO);
     const [onlyActive, setOnlyActive] = useState<boolean>(true);
 
-    // Data
+    // Data / states
     const [employees, setEmployees] = useState<EmployeeMini[]>([]);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -64,17 +62,45 @@ export default function AdminReports() {
     const [rowsByDates, setRowsByDates] = useState<ByDatesRow[] | null>(null);
     const [rowsMissing, setRowsMissing] = useState<MissingPeriodsRow[] | null>(null);
 
+    // Download states
+    const [downloadingByDates, setDownloadingByDates] = useState(false);
+    const [downloadingMissing, setDownloadingMissing] = useState(false);
+
     /* ---------------- helpers ---------------- */
-    async function authedFetch(input: string) {
+    async function authedFetch(input: string, init?: RequestInit) {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         return fetch(input, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            ...(init || {}),
+            headers: {
+                ...(init?.headers || {}),
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
         });
     }
 
     function fmt(n: number) {
         return Number(n).toFixed(2).replace(/\.00$/, "");
+    }
+
+    async function download(url: string, filename: string) {
+        const r = await authedFetch(url, { headers: { Accept: "text/csv" } });
+        const blob = await r.blob();
+        if (!r.ok) {
+            try {
+                const j = JSON.parse(await blob.text());
+                throw new Error(j?.error || "Download failed");
+            } catch {
+                throw new Error("Download failed");
+            }
+        }
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
     }
 
     /* ---------------- load employees (for select) ---------------- */
@@ -100,7 +126,7 @@ export default function AdminReports() {
         };
     }, []);
 
-    /* ---------------- run report ---------------- */
+    /* ---------------- run reports ---------------- */
     async function runByDates() {
         setErr(null);
         setLoading(true);
@@ -144,9 +170,47 @@ export default function AdminReports() {
         }
     }
 
+    /* ---------------- CSV download helpers with loading flags ---------------- */
+    async function downloadByDatesCSV() {
+        try {
+            setErr(null);
+            setDownloadingByDates(true);
+            const qs = new URLSearchParams({
+                report: "by-dates",
+                from,
+                to,
+                ...(employeeId !== "all" ? { employeeId } : {}),
+                format: "csv",
+            }).toString();
+            await download(`/api/reports?${qs}`, "report-by-dates.csv");
+        } catch (e: any) {
+            setErr(e?.message || "Download failed");
+        } finally {
+            setDownloadingByDates(false);
+        }
+    }
+
+    async function downloadMissingCSV() {
+        try {
+            setErr(null);
+            setDownloadingMissing(true);
+            const qs = new URLSearchParams({
+                report: "missing-periods",
+                ...(before ? { before } : {}),
+                ...(onlyActive ? { onlyActive: "true" } : {}),
+                format: "csv",
+            }).toString();
+            await download(`/api/reports?${qs}`, "report-missing-periods.csv");
+        } catch (e: any) {
+            setErr(e?.message || "Download failed");
+        } finally {
+            setDownloadingMissing(false);
+        }
+    }
+
     /* ---------------- aggregates for by-dates ---------------- */
     const totals = useMemo(() => {
-        if (!rowsByDates) return null;
+        if (!rowsByDates) return null as any;
         return rowsByDates.reduce(
             (acc, r) => {
                 acc.expected += r.expectedHours;
@@ -203,9 +267,15 @@ export default function AdminReports() {
                                     ))}
                                 </select>
                             </label>
-                            <button className="button bg-primary text-white px-4 py-2" onClick={runByDates} disabled={loading}>
-                                {loading ? "Loading…" : "Run report"}
-                            </button>
+
+                            <div className="flex items-center gap-3">
+                                <button className="button bg-primary text-white !py-[6px]" onClick={runByDates} disabled={loading || downloadingByDates}>
+                                    {loading ? "Loading…" : "Run report"}
+                                </button>
+                                <button className="button button--alt !py-[6px]" onClick={() => void downloadByDatesCSV()} disabled={downloadingByDates || loading} title={downloadingByDates ? "Preparing CSV…" : "Download as CSV"}>
+                                    {downloadingByDates ? "Downloading…" : "Download CSV"}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Errors */}
@@ -230,19 +300,20 @@ export default function AdminReports() {
                                     </thead>
                                     <tbody>
                                         {rowsByDates.map((r, i) => (
-                                            <tr key={i} className="border-b last:border-0">
+                                            <tr key={i} className="border-b last:border-0 hover:bg-primary/10">
                                                 <td className="py-2 pr-4 font-mono">{r.date}</td>
                                                 <td className="py-2 pr-4">{r.employeeName}</td>
                                                 <td className="py-2 pr-4">{fmt(r.expectedHours)}</td>
                                                 <td className="py-2 pr-4">{fmt(r.workHours)}</td>
-                                                <td className="py-2 pr-4">{fmt(r.sickHours)}</td>
-                                                <td className="py-2 pr-4">{fmt(r.timeOffHours)}</td>
+                                                <td className="py-2 pr-4">{r.sickHours && <span className="bg-tertiary text-primary p-1">{fmt(r.sickHours)}</span>}</td>
+                                                <td className="py-2 pr-4">{r.timeOffHours && <span className="bg-secondary text-white p-1">{fmt(r.timeOffHours)}</span>}</td>
                                                 <td className="py-2 pr-4">{fmt(r.totalHours)}</td>
-                                                <td className={`py-2 pr-4 ${r.extraWorkHours > 0 ? "text-secondary font-semibold" : ""}`}>{fmt(r.extraWorkHours)}</td>
+                                                <td className="py-2 pr-4">{r.extraWorkHours && <span className="bg-primary text-white p-1">{fmt(r.extraWorkHours)}</span>}</td>
                                                 <td className="py-2 pr-4">
                                                     <div className="flex gap-2">
-                                                        {r.hasSick && <span className="px-2 py-0.5 rounded bg-tertiary/20 text-tertiary">sick</span>}
-                                                        {r.hasTimeOff && <span className="px-2 py-0.5 rounded bg-secondary/20 text-secondary">time off</span>}
+                                                        {r.expectedHours > r.workHours + r.sickHours + r.timeOffHours && <img src="/images/alert.svg" alt="" className="inline-block h-[20px]" title="missing hours" />}
+                                                        {r.hasSick && <span className="px-2 py-0.5 bg-tertiary text-dark/90">sick</span>}
+                                                        {r.hasTimeOff && <span className="px-2 py-0.5 bg-secondary text-white/90">time off</span>}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -258,7 +329,7 @@ export default function AdminReports() {
                                                 <td className="py-2 pr-4 font-semibold">{fmt(totals.sick)}</td>
                                                 <td className="py-2 pr-4 font-semibold">{fmt(totals.toff)}</td>
                                                 <td className="py-2 pr-4 font-semibold">{fmt(totals.total)}</td>
-                                                <td className="py-2 pr-4 font-semibold text-secondary">{fmt(totals.extra)}</td>
+                                                <td className="py-2 pr-4 font-semibold">{fmt(totals.extra)}</td>
                                                 <td />
                                             </tr>
                                         )}
@@ -272,17 +343,26 @@ export default function AdminReports() {
                     <div className="pt-6">
                         {/* Filters */}
                         <div className="flex flex-wrap items-end gap-4">
-                            <label className="grid text-sm">
-                                <span className="mb-1">Before (Monday)</span>
-                                <input type="date" className="input w-48" value={before} onChange={(e) => setBefore(e.target.value)} />
-                            </label>
-                            <label className="inline-flex items-center gap-2 text-sm">
-                                <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
-                                <span>Only active employees</span>
-                            </label>
-                            <button className="button bg-primary text-white px-4 py-2" onClick={runMissingPeriods} disabled={loading}>
-                                {loading ? "Loading…" : "Run report"}
-                            </button>
+                            <div className="flex flex-col gap-y-4">
+                                <label className="grid text-sm">
+                                    <span className="mb-1">Before (Monday)</span>
+                                    <input type="date" className="input w-48" value={before} onChange={(e) => setBefore(e.target.value)} />
+                                </label>
+                                <div className="inline-flex items-center gap-2 text-sm">
+                                    <div className="checkbox">
+                                        <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
+                                        <label>Only active employees</label>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button className="button bg-primary text-white !py-[6px]" onClick={runMissingPeriods} disabled={loading || downloadingMissing}>
+                                        {loading ? "Loading…" : "Run report"}
+                                    </button>
+                                    <button className="button button--alt !py-[6px]" onClick={() => void downloadMissingCSV()} disabled={downloadingMissing || loading} title={downloadingMissing ? "Preparing CSV…" : "Download as CSV"}>
+                                        {downloadingMissing ? "Downloading…" : "Download CSV"}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Errors */}
@@ -297,8 +377,7 @@ export default function AdminReports() {
                                             <th className="py-2 pr-4">Week start</th>
                                             <th className="py-2 pr-4">Week</th>
                                             <th className="py-2 pr-4">Employee</th>
-                                            <th className="py-2 pr-4">Total hours</th>
-                                            <th className="py-2 pr-4">Status</th>
+                                            <th className="py-2 pr-4">Registered hours</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -308,9 +387,6 @@ export default function AdminReports() {
                                                 <td className="py-2 pr-4">{r.weekKey}</td>
                                                 <td className="py-2 pr-4">{r.employeeName}</td>
                                                 <td className="py-2 pr-4">{fmt(r.totalHours)}</td>
-                                                <td className="py-2 pr-4">
-                                                    <span className="px-2 py-0.5 rounded bg-secondary/20 text-secondary">open</span>
-                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
