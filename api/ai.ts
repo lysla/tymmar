@@ -8,29 +8,25 @@ import { generateObject } from "ai";
 
 /* ------------------------ Schemas ------------------------ */
 
-const InputSchema = z.object({
-    command: z.string().min(1),
-    weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // Monday of the selected week
-    expectedByDay: z.array(z.number()).length(7), // Mon..Sun
-    allowedDates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).min(1),
+const EntrySchema = z.object({
+    hours: z.number().min(0.01).max(24), // no zero-hour entries
+    type: z.enum(["work", "sick", "time_off"]),
+});
+const DaySchema = z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    expectedHours: z.number().min(0).max(24),
+    weekdayName: z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),
+    entries: z.array(EntrySchema),
 });
 
-// NEW: multiple entries per date
 const OutputSchema = z.object({
-    suggestions: z.array(
-        z.object({
-            date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-            entries: z
-                .array(
-                    z.object({
-                        hours: z.number().min(0.01).max(24), // no zero-hour entries
-                        type: z.enum(["work", "sick", "time_off"]),
-                    })
-                )
-                .min(1),
-        })
-    ),
+    suggestions: z.array(DaySchema).length(7),
     rationale: z.string().optional(),
+});
+
+const InputSchema = z.object({
+    command: z.string().min(1),
+    currentEntries: z.array(DaySchema).length(7),
 });
 
 /* ------------------------ Handler ------------------------ */
@@ -44,17 +40,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: "Invalid body", issues: parsed.error.issues });
         }
 
-        const { command, weekStart, expectedByDay, allowedDates } = parsed.data;
+        const { command, currentEntries } = parsed.data;
 
-        // UPDATED system prompt
-        const system = ["You are an assistant that proposes daily hour entries for some or all days within the given week.", "You will be given: (a) the week's Monday date, (b) expected hours per day.", "You may return MULTIPLE entries for the same day. Each entry must include { hours, type }.", "If the user says they did not work / were absent / took time off / were sick on a day: if sickness is mentioned → type = 'sick'; otherwise type = 'time_off'.", "When the user refers to a whole day, the SUM of all entries' hours for that day MUST equal the expected hours for that day.", "The total registered hours per day refers to all types combined (work, sick, time_off). For a whole-day time off or sickness, default the sum to expected hours.", "If the user does not specify one or more days, do not propose any entry for those days.", "If, and only if, the user explicitly asks to generally fill one or more days, or the whole week, fill them with total expected hours as entries of type 'work'. One entry is enough.", "Don't add unrequested weekdays hour entries.", "No entry with hours = 0.", "Return ONLY JSON matching the schema. The JSON MUST follow these rules."].join("\n");
+        // prettier-ignore
+        const system = [
+            "You are an assistant that proposes daily hour entries for the given week.", 
+            "ALWAYS return ONLY JSON matching the schema.", 
+            "You will be given the week, structured with all the relative information: the date, the corresponding day of the week, and the expected hours for that day. You will also be given the current entries for that week, if any, with the registered hours and relative type (can be: 'work', 'time_off', 'sick').", 
+            "The expected hours are to be considered per day, do not sum them up or consider them for the whole week unless explicitly asked by the user.",
+            "When the user refers to a 'whole day', it refers actually to the expected hours for that day. Never consider a whole day as in regular 24 hours or standard office hours, the 'whole day' is always the given expected hours for that day.", 
+            "Default type for hours is 'work'.",
+            "If the user says they did not work / were absent / took time off / were sick on a day: if sickness is mentioned → type = 'sick'; otherwise type = 'time_off'.", 
+            "All types (work, sick, time_off) are treated equally. So even for a whole day time off or sickness, the entry will be equal to the expected hours.", 
+            "If the user does specify one or more days, choose whether to merge them with the given current entries (if any), relatively to what the user asks.", 
+            "When asked to 'fill' days or the whole week, the total hours of the entries must be equal to the expected hours.",
+            "When asked to 'fill', if you consider a day, or the whole week, is already completely filled within the current entries, copy the current entries into your proposal.", 
+            "Do not fill days as time_off or sick unless the user specifically says so.",
+            "If the user asks to reset / empty days or the whole week, you can return the whole week or days with no entries.",
+            "Never return entries with hours = 0. If a day has no hours, return it with an empty entries array.", 
+        ].join("\n");
 
         const userMsg = {
             role: "user" as const,
             content: JSON.stringify({
                 instructions: command,
-                weekStart,
-                expectedByDay,
+                currentEntries,
             }),
         };
 
@@ -65,29 +75,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             system,
             messages: [userMsg],
             schema: OutputSchema,
-            temperature: 0.2,
+            temperature: 0.8,
         });
 
-        // Server-side safety rails:
-        const allowed = new Set(allowedDates);
-
-        // Clamp to allowed dates, clamp hours, drop zero/invalid, and ensure at least one valid entry per day remains
-        const safe = (object.suggestions ?? [])
-            .filter((s) => allowed.has(s.date))
-            .map((s) => {
-                const entries = (s.entries || [])
-                    .map((e) => ({
-                        hours: Math.max(0, Math.min(24, Number(e.hours || 0))),
-                        type: e.type ?? "work",
-                    }))
-                    .filter((e) => e.hours > 0);
-                return { date: s.date.trim(), entries };
-            })
-            .filter((s) => s.entries.length > 0);
-
         return res.status(200).json({
-            suggestions: safe,
-            originalSuggestions: object.suggestions,
+            suggestions: object.suggestions,
             rationale: object.rationale ?? null,
         });
     } catch (err: any) {

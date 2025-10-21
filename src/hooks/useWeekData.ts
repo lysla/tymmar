@@ -414,8 +414,27 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 if (endBound && isAfter(d, endBound)) return false;
                 return true;
             };
-            const allowedDates = weekDatesISO.filter(inEmployment);
 
+            // Build array-shaped currentEntries (Mon..Sun), matching DaySchema
+            const weekdayNames = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+
+            const currentEntries = weekDatesISO.map((iso, i) => {
+                const expectedHoursForDay = Number(expectedByDay[i] ?? 0);
+
+                return {
+                    date: iso,
+                    expectedHours: expectedHoursForDay, // required by EntrySchema
+                    weekdayName: weekdayNames[i], // "monday" | ... | "sunday"
+                    entries: (draftEntriesByDate[iso] ?? [])
+                        .map((r) => ({
+                            hours: Math.max(0, Math.min(24, Number(r.hours || 0))),
+                            type: (r.type ?? "work") as "work" | "sick" | "time_off",
+                        }))
+                        .filter((e) => e.hours > 0), // your schema uses min(0.01), so drop zeros
+                };
+            });
+
+            // Call the AI endpoint with the new payload shape
             const r = await fetch("/api/ai", {
                 method: "POST",
                 headers: {
@@ -423,10 +442,8 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                     ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
                 body: JSON.stringify({
-                    command: aiCmd || "Fill a normal week based on expected hours.",
-                    weekStart: weekStartISO,
-                    expectedByDay: [...expectedByDay],
-                    allowedDates,
+                    command: aiCmd || "Fill a normal week based on expected hours for each day.",
+                    currentEntries, // <-- matches InputSchema exactly
                 }),
             });
 
@@ -460,22 +477,30 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 })
                 .filter((row: { date: string; entries: { hours: number; type: DayType }[] }) => weekSet.has(row.date) && inEmployment(row.date) && row.entries.length > 0);
 
-            if (normalized.length === 0) {
+            if (suggestions.length > 0 && normalized.length === 0) {
                 setAiMsg("AI returned no applicable changes for this week.");
                 return;
             }
 
-            // Apply: replace the day's entries with the AI-proposed list
+            // Apply: replace the *entire week's* entries with the AI-proposed list
             setDraftEntriesByDate((cur) => {
+                // Build quick lookup: date -> entries[]
+                const map = new Map<string, { hours: number; type: DayType }[]>();
+                for (const row of normalized) map.set(row.date, row.entries);
+
                 const next = { ...cur };
-                for (const row of normalized) {
-                    next[row.date] = row.entries.map((e) => ({
+
+                // For every day in the visible week, set exactly what AI returned (or empty)
+                for (const iso of weekDatesISO) {
+                    const entries = map.get(iso) ?? [];
+                    next[iso] = entries.map((e) => ({
                         type: e.type,
                         hours: e.hours,
                         projectId: null,
                         note: null,
                     }));
                 }
+
                 return next;
             });
 
@@ -485,7 +510,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         } finally {
             setAiBusy(false);
         }
-    }, [aiCmd, getAccessToken, expectedByDay, weekDatesISO, weekStartISO, startBound, endBound]);
+    }, [aiCmd, getAccessToken, expectedByDay, weekDatesISO, startBound, endBound, draftEntriesByDate]);
 
     return {
         // week navigation & range

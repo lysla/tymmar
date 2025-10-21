@@ -56,7 +56,7 @@ export default function WeekGrid() {
                             <p className={`font-serif leading-[1] ${isToday ? "text-secondary" : ""}`}>
                                 {fmtDayLabel(d)}
                                 {exceededHours > 0 && (
-                                    <span className="ml-4 text-xs inline-flex items-center px-1 gap-x-1 bg-tertiary font-sans">
+                                    <span className="ml-4 text-dark text-xs inline-flex items-center px-1 gap-x-1 bg-tertiary font-sans">
                                         <img src="/images/alert.svg" alt="" className="inline-block h-[15px]" />
                                         {exceededHours}
                                     </span>
