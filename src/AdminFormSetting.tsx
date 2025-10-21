@@ -75,10 +75,12 @@ export default function AdminFormSetting({
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-y-4">
-            <label className="flex items-center gap-x-4">
-                <input type="checkbox" checked={values.isDefault} onChange={(e) => set("isDefault", e.target.checked)} disabled={loading} />
-                <span className="text-sm">Is default</span>
-            </label>
+            <div className="flex items-center gap-x-4">
+                <div className="checkbox mr-auto">
+                    <input id="cbDefaultHS" type="checkbox" checked={values.isDefault} onChange={(e) => set("isDefault", e.target.checked)} disabled={loading} />
+                    <label htmlFor="cbDefaultHS">Default hours setting</label>
+                </div>
+            </div>
 
             <label className="grid gap-1">
                 <span className="text-sm">Monday hours *</span>
