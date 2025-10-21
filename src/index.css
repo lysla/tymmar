@@ -165,5 +165,5 @@ body > div:first-child {
     @apply overflow-x-auto;
 }
 .weekgrid > div > div {
-    @apply min-w-[150px] grow;
+    @apply min-w-[150px] grow shrink basis-0;
 }
