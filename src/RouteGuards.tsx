@@ -9,7 +9,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     const loc = useLocation();
     if (loading)
         return (
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+            <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
             </div>
         );
@@ -22,7 +22,7 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
     const loc = useLocation();
     if (loading)
         return (
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+            <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
             </div>
         );
@@ -39,7 +39,7 @@ export function RequireEmployeeRecord({ children }: { children: ReactNode }) {
 
     if (loading)
         return (
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+            <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
             </div>
         );
@@ -48,7 +48,7 @@ export function RequireEmployeeRecord({ children }: { children: ReactNode }) {
 
     if (status === "loading" || status === "idle")
         return (
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+            <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
             </div>
         );

@@ -14,7 +14,7 @@ export default function Dashboard() {
     // Auth/employee states
     if (status === "idle" || status === "loading") {
         return (
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+            <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
             </div>
         );
@@ -55,7 +55,7 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
     // Wait for settings to load to avoid flashing fallback expected hours
     if (d.loadingSettings) {
         return (
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+            <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
             </div>
         );
@@ -96,7 +96,7 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
 
     return (
         <>
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 pt-8">
+            <div className="w-full min-h-vh bg-paper flex flex-col px-16 pt-8">
                 <header className="flex items-center justify-between bg-white px-8 py-6">
                     <h1>
                         <span className="font-serif uppercase">Hello</span> <span className="bg-primary text-light px-1">{employeeName}</span> <span className="font-serif uppercase">!</span>

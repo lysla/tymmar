@@ -32,7 +32,7 @@ export default function AdminSidebar() {
     const reportsPatterns = [{ path: "/admin/reports", end: true }];
 
     return (
-        <aside className="sidebar bg-light px-16 pt-8 flex flex-col items-start gap-y-4 min-w-64">
+        <aside className="sidebar h-full bg-light px-16 pt-8 flex flex-col items-start gap-y-4 min-w-64">
             <Link to="/" className="logo-typo">
                 tymmar
             </Link>
