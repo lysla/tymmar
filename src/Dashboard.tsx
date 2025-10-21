@@ -52,6 +52,15 @@ export default function Dashboard() {
 function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; employeeName: string }) {
     const d = useWeekDataContext();
 
+    // Wait for settings to load to avoid flashing fallback expected hours
+    if (d.loadingSettings) {
+        return (
+            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+                <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
+            </div>
+        );
+    }
+
     // ------- Weekly stacked progress (work/sick/time_off) with >100% support -------
     const TYPE_COLORS: Record<string, string> = {
         work: "bg-primary",

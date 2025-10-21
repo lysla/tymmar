@@ -84,6 +84,8 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
 
     // ——— settings ———
     const [settings, setSettings] = useState<Settings | null>(null);
+    const [settingsLoaded, setSettingsLoaded] = useState(false); // NEW
+
     const expectedByDay = useMemo(() => {
         if (!settings) return [8, 8, 8, 8, 8, 0, 0] as const;
         return [settings.mon, settings.tue, settings.wed, settings.thu, settings.fri, settings.sat, settings.sun] as const;
@@ -201,8 +203,8 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
                 if (active && chosen) {
                     setSettings(toLocalSettings(chosen));
                 }
-            } catch {
-                /* ignore → fallback stays [8,8,8,8,8,0,0] */
+            } finally {
+                if (active) setSettingsLoaded(true); // mark done regardless of success/error
             }
         })();
 
@@ -516,6 +518,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
         // loading/error
         loadingWeek,
         weekErr,
+        loadingSettings: !settingsLoaded, // NEW: gate UI on this to avoid flashing defaults
 
         // row edit helpers
         addEntry,
