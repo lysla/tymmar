@@ -46,18 +46,22 @@
     @apply font-normal pb-2;
 }
 
-html,
+html {
+    @apply h-full;
+}
+
 body {
-    @apply h-full text-dark;
+    @apply min-h-full flex flex-col text-dark;
 }
 
 body > div:first-child {
-    @apply h-full flex flex-col;
+    @apply grow flex;
 }
 
 .bg-paper {
     background-image: url("/images/bg.avif");
     background-size: contain;
+    background-attachment: fixed;
 }
 
 .logo-typo {

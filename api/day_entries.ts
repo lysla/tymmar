@@ -4,11 +4,12 @@ export const config = { runtime: "nodejs" };
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, between, eq, inArray } from "drizzle-orm";
 import { db } from "./_db";
-import { employees, periods, dayEntries } from "../db/schema";
+import { employees, periods, dayEntries, settings, dayExpectations } from "../db/schema";
 import { requireUser } from "./_auth";
 import { addDaysISO, getMondayISO, isDateISO, isoWeekKeyFromMonday, isValidType } from "./_date";
 import { DayEntry, DayType } from "../src/types";
 
+/* ---------------- types ---------------- */
 type ReplaceDayEntriesBody = {
     mode: "replace-day-entries";
     entriesByDate: Record<string, DayEntry[]>;
@@ -19,13 +20,77 @@ type ReplaceTotalsBody = {
     entries: { date: string; totalHours: number; type?: DayType }[];
 };
 
+/* ---------------- helpers ---------------- */
+const WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
+function weekdayNameUTC(dateISO: string): (typeof WEEKDAY_NAMES)[number] {
+    const d = new Date(dateISO + "T00:00:00Z");
+    return WEEKDAY_NAMES[d.getUTCDay()];
+}
+
+function toNum(v: unknown, def = 0) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : def;
+}
+
+/**
+ * Given an employee row and a date, return the expected hours for that weekday.
+ * Preference order:
+ *  - employee.settingsId row (if exists)
+ *  - default settings row (is_default = true), pick the latest by id if multiple
+ *  - hard fallback { mon..fri: 8, sat/sun: 0 }
+ */
+async function getExpectedHoursForDate(empRow: typeof employees.$inferSelect, dateISO: string): Promise<number> {
+    let sRow:
+        | (typeof settings.$inferSelect & {
+              mon: any;
+              tue: any;
+              wed: any;
+              thu: any;
+              fri: any;
+              sat: any;
+              sun: any;
+          })
+        | null = null;
+
+    if (empRow.settingsId) {
+        const [sr] = await db.select().from(settings).where(eq(settings.id, empRow.settingsId)).limit(1);
+        sRow = sr ?? null;
+    }
+    if (!sRow) {
+        const allDefaults = await db.select().from(settings).where(eq(settings.isDefault, true));
+        sRow = allDefaults.sort((a, b) => Number(a.id) - Number(b.id))[allDefaults.length - 1] ?? null;
+    }
+
+    const fallback = { mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0, sun: 0 };
+    const src = sRow ?? (fallback as any);
+
+    const wd = weekdayNameUTC(dateISO);
+    switch (wd) {
+        case "monday":
+            return toNum(src.mon, 8);
+        case "tuesday":
+            return toNum(src.tue, 8);
+        case "wednesday":
+            return toNum(src.wed, 8);
+        case "thursday":
+            return toNum(src.thu, 8);
+        case "friday":
+            return toNum(src.fri, 8);
+        case "saturday":
+            return toNum(src.sat, 0);
+        case "sunday":
+        default:
+            return toNum(src.sun, 0);
+    }
+}
+
 /* ---------------- handler ---------------- */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const user = await requireUser(req);
 
         // find employee
-        const [emp] = await db.select({ id: employees.id }).from(employees).where(eq(employees.userId, user.id)).limit(1);
+        const [emp] = await db.select({ id: employees.id, settingsId: employees.settingsId }).from(employees).where(eq(employees.userId, user.id)).limit(1);
         if (!emp) return res.status(403).json({ error: "No employee profile" });
 
         /* ---------- GET: read week (period + raw rows + totals) ---------- */
@@ -86,6 +151,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 .from(dayEntries)
                 .where(and(eq(dayEntries.employeeId, emp.id), between(dayEntries.workDate, weekStartISO, weekEndISO)));
 
+            // NEW: fetch expectations snapshot for the same range
+            const expRows = await db
+                .select({
+                    workDate: dayExpectations.workDate,
+                    expectedHours: dayExpectations.expectedHours,
+                })
+                .from(dayExpectations)
+                .where(and(eq(dayExpectations.employeeId, emp.id), between(dayExpectations.workDate, weekStartISO, weekEndISO)));
+
+            const expectationsByDate: Record<string, number> = {};
+            for (const r of expRows) {
+                expectationsByDate[String(r.workDate)] = Number(r.expectedHours ?? 0);
+            }
+
             const entriesByDate: Record<string, DayEntry[]> = {};
             const totals: Record<string, { totalHours: number; type: DayType | "mixed" }> = {};
 
@@ -120,6 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
                 entriesByDate,
                 totals,
+                expectationsByDate, // ← NEW
                 range: { from: weekStartISO, to: weekEndISO },
             });
         }
@@ -209,6 +289,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     updatedAt: new Date(),
                                 } as any);
                             }
+                        }
+
+                        // SNAPSHOT expected hours for *all* dates touched
+                        for (const d of dates) {
+                            const expected = await getExpectedHoursForDate({ id: emp.id, settingsId: emp.settingsId } as any, d);
+                            await tx
+                                .insert(dayExpectations)
+                                .values({
+                                    employeeId: emp.id,
+                                    workDate: d,
+                                    expectedHours: String(expected),
+                                } as any)
+                                .onConflictDoUpdate({
+                                    target: [dayExpectations.employeeId, dayExpectations.workDate],
+                                    set: {
+                                        expectedHours: String(expected),
+                                        updatedAt: new Date(),
+                                    },
+                                });
                         }
 
                         // recompute weekly total
@@ -301,6 +400,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 note: null,
                                 updatedAt: new Date(),
                             } as any);
+                        }
+
+                        // SNAPSHOT expected hours for *all* dates touched
+                        for (const d of dates) {
+                            const expected = await getExpectedHoursForDate({ id: emp.id, settingsId: emp.settingsId } as any, d);
+                            await tx
+                                .insert(dayExpectations)
+                                .values({
+                                    employeeId: emp.id,
+                                    workDate: d,
+                                    expectedHours: String(expected),
+                                } as any)
+                                .onConflictDoUpdate({
+                                    target: [dayExpectations.employeeId, dayExpectations.workDate],
+                                    set: {
+                                        expectedHours: String(expected),
+                                        updatedAt: new Date(),
+                                    },
+                                });
                         }
 
                         // recompute weekly total

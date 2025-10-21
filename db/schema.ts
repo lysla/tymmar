@@ -109,6 +109,21 @@ export const dayEntries = pgTable(
     ]
 );
 
+export const dayExpectations = pgTable(
+    "day_expectations",
+    {
+        id: serial("id").primaryKey(),
+        employeeId: integer("employee_id")
+            .references(() => employees.id, { onDelete: "cascade" })
+            .notNull(),
+        workDate: date("work_date").notNull(),
+        expectedHours: numeric("expected_hours", { precision: 5, scale: 2 }).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    },
+    (t) => [unique("day_expectations_emp_date_uk").on(t.employeeId, t.workDate), index("day_expectations_emp_idx").on(t.employeeId), index("day_expectations_date_idx").on(t.workDate)]
+);
+
 /* --- periods: weekly state/cached total --- */
 export const periods = pgTable(
     "periods",

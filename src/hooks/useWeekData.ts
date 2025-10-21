@@ -86,16 +86,23 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
     const [settings, setSettings] = useState<Settings | null>(null);
     const [settingsLoaded, setSettingsLoaded] = useState(false); // NEW
 
-    const expectedByDay = useMemo(() => {
-        if (!settings) return [8, 8, 8, 8, 8, 0, 0] as const;
-        return [settings.mon, settings.tue, settings.wed, settings.thu, settings.fri, settings.sat, settings.sun] as const;
-    }, [settings]);
-
     // ——— data ———
     const [period, setPeriod] = useState<PeriodInfo | null>(null);
     const [entriesByDate, setEntriesByDate] = useState<EntriesByDate>({});
     const [draftEntriesByDate, setDraftEntriesByDate] = useState<EntriesByDate>({});
+    const [expectationsByDate, setExpectationsByDate] = useState<Record<string, number>>({}); // ← NEW
     const [weekErr, setWeekErr] = useState<string | null>(null);
+
+    const expectedByDay = useMemo(() => {
+        // fallback settings if no snapshot for a date
+        const fallback = settings ? ([settings.mon, settings.tue, settings.wed, settings.thu, settings.fri, settings.sat, settings.sun] as const) : ([8, 8, 8, 8, 8, 0, 0] as const);
+
+        // per visible day: use snapshot if present, else fallback
+        return weekDatesISO.map((iso, i) => {
+            const snap = expectationsByDate[iso];
+            return typeof snap === "number" ? snap : fallback[i] ?? 0;
+        }) as unknown as readonly number[];
+    }, [settings, expectationsByDate, weekDatesISO]);
 
     // compute totals/percent from the draft (what the user sees)
     const weekTotal = useMemo(() => {
@@ -229,6 +236,7 @@ export function useWeekData(getAccessToken: () => Promise<string | undefined>, o
             setPeriod(json.period);
             setEntriesByDate(json.entriesByDate || {});
             setDraftEntriesByDate(json.entriesByDate || {});
+            setExpectationsByDate(json.expectationsByDate || {});
             fetchedKeysRef.current.add(currentKey);
             setLoadedKey(currentKey);
             setWeekErr(null);

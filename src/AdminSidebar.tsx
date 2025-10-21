@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, matchPath } from "react-router";
 import { supabase } from "./supabase";
 
 export default function AdminSidebar() {
@@ -9,10 +9,30 @@ export default function AdminSidebar() {
         if (error) console.error("Error signing out:", error.message);
     }
 
-    const isActive = (paths: string[]) => (paths.includes(loc.pathname) ? "border-b font-bold" : "opacity-80 hover:opacity-100");
+    // Helper to check if current location matches ANY of the given patterns
+    // Each pattern can control "end" matching (exact vs prefix).
+    const isActive = (patterns: { path: string; end?: boolean }[]) => {
+        const matched = patterns.some((p) => matchPath({ path: p.path, end: p.end ?? true }, loc.pathname));
+        return matched ? "border-b font-bold" : "opacity-80 hover:opacity-100";
+    };
+
+    // Patterns per nav item
+    const employeesPatterns = [
+        { path: "/admin", end: true }, // list page
+        { path: "/admin/add-user", end: true }, // create
+        { path: "/admin/employee/:id/edit", end: true }, // edit
+    ];
+
+    const settingsPatterns = [
+        { path: "/admin/settings", end: true }, // list page
+        { path: "/admin/add-setting", end: true }, // create
+        { path: "/admin/setting/:id/edit", end: true }, // edit
+    ];
+
+    const reportsPatterns = [{ path: "/admin/reports", end: true }];
 
     return (
-        <aside className="sidebar bg-light px-16 pt-8 flex flex-col items-start gap-y-4 min-w-64">
+        <aside className="sidebar h-full bg-light px-16 pt-8 flex flex-col items-start gap-y-4 min-w-64">
             <Link to="/" className="logo-typo">
                 tymmar
             </Link>
@@ -22,13 +42,13 @@ export default function AdminSidebar() {
             </button>
 
             <nav className="flex flex-col gap-y-4 py-8 text-sm">
-                <Link to="/admin" className={isActive(["/admin", "/admin/add-user", "/admin/employee/:id/edit"])}>
+                <Link to="/admin" className={isActive(employeesPatterns)}>
                     Employees
                 </Link>
-                <Link to="/admin/settings" className={isActive(["/admin/settings", "/admin/add-setting", "/admin/setting/:id/edit"])}>
+                <Link to="/admin/settings" className={isActive(settingsPatterns)}>
                     Settings
                 </Link>
-                <Link to="/admin/reports" className={isActive(["/admin/reports"])}>
+                <Link to="/admin/reports" className={isActive(reportsPatterns)}>
                     Reports
                 </Link>
             </nav>

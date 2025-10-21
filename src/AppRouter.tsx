@@ -11,13 +11,14 @@ import AdminEditEmployee from "./AdminEditEmployee";
 import AdminSettings from "./AdminSettings";
 import AdminAddSetting from "./AdminAddSetting";
 import AdminEditSetting from "./AdminEditSetting";
+import AdminReports from "./AdminReports";
 import AdminLayout from "./AdminLayout";
 
 export default function AppRouter() {
     const { user, isAdmin, loading } = useAuth();
     if (loading)
         return (
-            <div className="w-full min-h-dvh bg-paper flex flex-col px-16 py-8">
+            <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
             </div>
         );
@@ -52,6 +53,7 @@ export default function AppRouter() {
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="add-setting" element={<AdminAddSetting />} />
                 <Route path="setting/:id/edit" element={<AdminEditSetting />} />
+                <Route path="reports" element={<AdminReports />} />
             </Route>
 
             <Route path="/admin/signin" element={user ? isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/" replace /> : <AdminSignIn />} />

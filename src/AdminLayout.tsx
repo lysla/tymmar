@@ -3,7 +3,7 @@ import AdminSidebar from "./AdminSidebar";
 
 export default function AdminLayout() {
     return (
-        <div className="w-full min-h-dvh bg-paper flex">
+        <div className="w-full min-h-full bg-paper flex">
             <AdminSidebar />
 
             <main className="px-16 py-8 grow flex flex-col">

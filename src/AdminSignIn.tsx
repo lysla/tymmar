@@ -20,7 +20,7 @@ export default function AdminSignIn() {
     }
 
     return (
-        <div className="w-full h-full bg-paper flex flex-col">
+        <div className="w-full min-h-vh bg-paper flex flex-col">
             <header className="flex items-center justify-center px-16 pt-8">
                 <div>
                     <Link to="/" className="logo-typo">

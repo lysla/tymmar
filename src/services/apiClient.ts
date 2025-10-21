@@ -20,6 +20,7 @@ export async function fetchWeek(from: string, to: string, token?: string) {
         period: PeriodInfo;
         entriesByDate: EntriesByDate;
         totals: Record<string, { totalHours: number; type: DayType | "mixed" }>;
+        expectationsByDate?: Record<string, number>;
     };
 }
 
