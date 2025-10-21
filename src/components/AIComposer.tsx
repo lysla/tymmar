@@ -17,7 +17,7 @@ export default function AIComposer() {
                 <input
                     type="text"
                     className="input"
-                    placeholder='e.g. "Fill Mon–Fri with normal hours, mark Wed sick"'
+                    placeholder='e.g. "Fill whole week"'
                     value={aiCmd}
                     onChange={(e) => setAiCmd(e.target.value)}
                     onKeyDown={(e) => {

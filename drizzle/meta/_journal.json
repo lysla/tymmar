@@ -36,6 +36,48 @@
       "when": 1760428789685,
       "tag": "0004_wild_the_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1760967028274,
+      "tag": "0005_last_mattie_franklin",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1760967202188,
+      "tag": "0006_sparkling_blazing_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1760968408721,
+      "tag": "0007_zippy_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1760968900376,
+      "tag": "0008_loving_mole_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1760969121222,
+      "tag": "0009_dizzy_gamora",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1760969540249,
+      "tag": "0010_absurd_wither",
+      "breakpoints": true
     }
   ]
 }

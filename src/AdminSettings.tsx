@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
 import { Link } from "react-router";
-import type { Employee } from "./types";
+import type { Setting } from "./types";
 
-export default function AdminDashboard() {
-    const [list, setList] = useState<Employee[]>([]);
+export default function AdminSettings() {
+    const [list, setList] = useState<Setting[]>([]);
     const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
 
     // selection
@@ -26,13 +26,13 @@ export default function AdminDashboard() {
             try {
                 const { data } = await supabase.auth.getSession();
                 const token = data.session?.access_token;
-                const r = await fetch("/api/employees", {
+                const r = await fetch("/api/settings", {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!active) return;
                 if (!r.ok) return setStatus("error");
-                const json = (await r.json()) as { employees: Employee[] };
-                setList(json.employees ?? []);
+                const json = (await r.json()) as { settings: Setting[] };
+                setList(json.settings ?? []);
                 setStatus("ok");
             } catch {
                 setStatus("error");
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
     async function handleDeleteSelected() {
         if (selected.size === 0) return;
         const ids = Array.from(selected);
-        const confirmText = ids.length === 1 ? "Delete the selected employee? This will also remove linked hours." : `Delete ${ids.length} selected employees? This will also remove linked hours.`;
+        const confirmText = ids.length === 1 ? "Delete the selected setting? This will also remove linked hours." : `Delete ${ids.length} selected settings? This will also remove linked hours.`;
         if (!window.confirm(confirmText)) return;
 
         setDeleting(true);
@@ -68,7 +68,7 @@ export default function AdminDashboard() {
             const { data } = await supabase.auth.getSession();
             const token = data.session?.access_token;
 
-            const r = await fetch("/api/employees", {
+            const r = await fetch("/api/settings", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
                 body: JSON.stringify({ ids }),
@@ -90,8 +90,8 @@ export default function AdminDashboard() {
     return (
         <>
             <div className="flex items-center justify-between">
-                <h1 className="font-serif text-2xl">Employees list</h1>
-                <Link to="/admin/add-user" className="link">
+                <h1 className="font-serif text-2xl">Settings list</h1>
+                <Link to="/admin/add-setting" className="link">
                     + Add new
                 </Link>
             </div>
@@ -106,17 +106,15 @@ export default function AdminDashboard() {
             )}
 
             <div className="bg-white p-8 mt-8">
-                <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-x-4 font-semibold pb-2">
+                <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-x-4 font-semibold pb-2">
                     <div className="th">
                         <div className="checkbox">
                             <input ref={selectAllRef} type="checkbox" id="cbListAll" checked={allChecked} onChange={toggleAll} disabled={list.length === 0} />
                             <label htmlFor="cbListAll"></label>
                         </div>
                     </div>
-                    <div className="th">Surname</div>
-                    <div className="th">Name</div>
-                    <div className="th">Email</div>
-                    <div className="th">Start date</div>
+                    <div className="th">Hours</div>
+                    <div className="th">Default</div>
                     <div className="th">
                         <span className="opacity-0">Edit</span>
                     </div>
@@ -125,10 +123,10 @@ export default function AdminDashboard() {
                 {status === "loading" && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
                 {status === "error" && (
                     <p className="py-6 error">
-                        <span>Could not load employees.</span>
+                        <span>Could not load settings.</span>
                     </p>
                 )}
-                {status === "ok" && list.length === 0 && <p className="py-6">No employees yet.</p>}
+                {status === "ok" && list.length === 0 && <p className="py-6">No settings yet.</p>}
 
                 {status === "ok" && list.length > 0 && (
                     <div className="divide-y divide-light">
@@ -136,17 +134,15 @@ export default function AdminDashboard() {
                             const cbId = `cbList${e.id}`;
                             const checked = selected.has(e.id);
                             return (
-                                <div key={e.id} className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-x-4 py-2 -mx-4 px-4 hover:bg-tertiary">
+                                <div key={e.id} className="grid grid-cols-[auto_1fr_1fr_auto] gap-x-4 py-2 -mx-4 px-4 hover:bg-tertiary">
                                     <div className="checkbox">
                                         <input type="checkbox" id={cbId} checked={checked} onChange={toggleOne(e.id)} />
                                         <label htmlFor={cbId}></label>
                                     </div>
-                                    <div className="flex items-center">{e.surname}</div>
-                                    <div className="flex items-center">{e.name}</div>
-                                    <div className="text-gray text-xs flex items-center">{e.email}</div>
-                                    <div className="text-gray">{e.startDate ? new Date(e.startDate).toLocaleDateString("en-GB") : ""}</div>
+                                    <div className="flex items-center">{`${e.mon_hours},${e.tue_hours},${e.wed_hours},${e.thu_hours},${e.fri_hours},${e.sat_hours},${e.sun_hours}`}</div>
+                                    <div className="text-gray text-xs flex items-center">{e.isDefault ? "Yes" : "No"}</div>
                                     <div className="text-right">
-                                        <Link className="link" to={`/admin/employee/${e.id}/edit`}>
+                                        <Link className="link" to={`/admin/setting/${e.id}/edit`}>
                                             Edit
                                         </Link>
                                     </div>

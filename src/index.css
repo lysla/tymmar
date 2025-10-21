@@ -67,8 +67,11 @@ body > div:first-child {
 .input {
     @apply outline-none border border-dark px-4 py-2 w-full;
 }
-.input--text {
-    @apply w-[90px];
+.input::placeholder {
+    @apply text-dark/40;
+}
+.input--alt {
+    @apply bg-light border-0;
 }
 .button {
     @apply cursor-pointer px-4 py-2 bg-primary text-light hover:bg-secondary active:bg-tertiary active:text-dark;
@@ -84,6 +87,9 @@ body > div:first-child {
 }
 .link {
     @apply text-primary font-bold border-b cursor-pointer hover:text-secondary active:text-dark;
+}
+.link--mini {
+    @apply text-xs;
 }
 .error {
     @apply text-sm;
@@ -121,11 +127,43 @@ body > div:first-child {
 }
 
 .progress {
-    @apply w-[60%] border border-primary flex;
+    @apply w-full border border-primary flex h-[12px];
+}
+.progress--alt {
+    @apply w-[60%] h-[22px];
 }
 .progress__bar {
-    @apply bg-primary h-[10px];
+    @apply h-[10px];
 }
 .progress__bar--alt {
     @apply h-[20px];
+}
+
+.remove {
+    @apply absolute bg-dark rounded-full top-0 left-1/2 h-5 w-5 inline-flex justify-center items-center -translate-1/2 text-xs hover:bg-secondary cursor-pointer text-light;
+}
+
+.week-closed,
+.week-full,
+.week-dirty {
+    @apply relative;
+}
+.week-closed::before {
+    content: "";
+    @apply -left-4 top-1/2 -translate-y-1/2 absolute w-2 h-[1px] bg-gray;
+}
+.week-full:before {
+    content: "";
+    @apply -left-4 top-1/2 -translate-y-1/2 absolute w-2 h-1 bg-tertiary;
+}
+.week-dirty:before {
+    content: "";
+    @apply -left-4 top-1/2 -translate-y-1/2 absolute w-2 h-1 bg-primary;
+}
+
+.weekgrid {
+    @apply overflow-x-auto;
+}
+.weekgrid > div > div {
+    @apply min-w-[150px] grow shrink basis-0;
 }
