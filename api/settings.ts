@@ -3,9 +3,9 @@ export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { eq, inArray, not } from "drizzle-orm";
-import { db } from "./_db";
+import { db } from "./_shared/_db";
 import { settings } from "../db/schema";
-import { requireAdmin, requireUser } from "./_auth";
+import { requireAdmin, requireUser } from "./_shared/_auth";
 
 /* ---------------- helpers ---------------- */
 function toNum(v: unknown) {

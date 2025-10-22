@@ -9,35 +9,49 @@ export type Setting = {
     sat_hours: number;
     sun_hours: number;
     isDefault: boolean;
-    updatedAt: string;
+    updatedAt: Date | string;
 };
 
 export type Employee = {
     id: number;
     name: string;
     surname: string;
-    password: string; // only for form use, not stored here
+    password: string;
     userId: string | null;
-    email: string; // comes from Supabase auth
-    startDate: string | null;
-    endDate: string | null;
-    updatedAt: string;
-    createdAt: string;
+    email: string;
+    startDate: Date | string | null;
+    endDate: Date | string | null;
+    settingsId: number | null;
+    updatedAt: Date | string;
+    createdAt: Date | string;
 };
 
-export type DayType = "work" | "sick" | "time_off";
+export const DAY_TYPES = ["work", "sick", "time_off"] as const;
+export type DayType = (typeof DAY_TYPES)[number];
 
 export type DayEntry = {
     id: number;
-    date: string;
-    type: DayType;
-    hours: number;
+    employeeId: number;
     projectId: number | null;
     note: string | null;
+    workDate: string;
+    type: DayType;
+    hours: number;
+    updatedAt: Date | string;
+    createdAt: Date | string;
+};
+
+export type DayExpectation = {
+    id: number;
+    employeeId: number;
+    workDate: string;
+    exptectedHours: number;
+    updatedAt: Date | string;
+    createdAt: Date | string;
 };
 
 export type WeekSummary = {
-    monday: string; // YYYY-MM-DD (Monday)
-    daysWithEntries: number; // 0..7
+    monday: Date | string;
+    daysWithEntries: number;
     closed: boolean;
 };

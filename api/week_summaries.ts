@@ -3,12 +3,12 @@ export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, between, eq, inArray } from "drizzle-orm";
-import { db } from "./_db";
+import { db } from "./_shared/_db";
 import { employees, periods, dayEntries } from "../db/schema";
-import { requireUser } from "./_auth";
+import { requireUser } from "./_shared/_auth";
 import { startOfWeek, endOfWeek } from "date-fns";
 import { parseISO } from "date-fns";
-import { getMondayISO, isDateISO, toISO } from "./_date";
+import { getMondayISO, isDateISO, toISO } from "./_shared/_date";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {

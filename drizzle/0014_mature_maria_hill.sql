@@ -1,0 +1,1 @@
+CREATE TYPE "public"."day_type" AS ENUM('work', 'sick', 'time_off');

@@ -1,16 +1,15 @@
-import { createClient, type User } from "@supabase/supabase-js";
+// api/_shared/_auth.ts
 import type { VercelRequest } from "@vercel/node";
+import { User } from "@supabase/supabase-js";
+import { supabase } from "./_supabase";
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
-
+/** 👀 useful helpers for logic splitting */
 type HttpErr = Error & { status: number };
-
 function httpError(status: number, message: string): HttpErr {
     const err = new Error(message) as HttpErr;
     err.status = status;
     return err;
 }
-
 function getToken(req: VercelRequest) {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
@@ -19,7 +18,7 @@ function getToken(req: VercelRequest) {
     return authHeader.slice(7);
 }
 
-/** Verify caller token and return Supabase user. */
+/** 👀 verify caller token and return supabase user */
 export async function requireUser(req: VercelRequest): Promise<User> {
     const token = getToken(req);
     const {
@@ -30,7 +29,7 @@ export async function requireUser(req: VercelRequest): Promise<User> {
     return user;
 }
 
-/** Verify caller is admin. */
+/** 👀 verify caller is admin */
 export async function requireAdmin(req: VercelRequest): Promise<User> {
     const user = await requireUser(req);
     if (!user.app_metadata?.is_admin) throw httpError(403, "Forbidden: admin only");

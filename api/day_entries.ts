@@ -3,10 +3,10 @@ export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, between, eq, inArray } from "drizzle-orm";
-import { db } from "./_db";
+import { db } from "./_shared/_db";
 import { employees, periods, dayEntries, settings, dayExpectations } from "../db/schema";
-import { requireUser } from "./_auth";
-import { addDaysISO, getMondayISO, isDateISO, isoWeekKeyFromMonday, isValidType } from "./_date";
+import { requireUser } from "./_shared/_auth";
+import { addDaysISO, getMondayISO, isDateISO, isoWeekKeyFromMonday, isValidType } from "./_shared/_date";
 import { DayEntry, DayType } from "../src/types";
 
 /* ---------------- types ---------------- */

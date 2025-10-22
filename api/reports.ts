@@ -2,8 +2,8 @@
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { db } from "./_db";
-import { requireAdmin } from "./_auth";
+import { db } from "./_shared/_db";
+import { requireAdmin } from "./_shared/_auth";
 import { employees, dayEntries, dayExpectations, periods } from "../db/schema";
 import { and, eq, gte, lte, lt, sql, inArray } from "drizzle-orm";
 
