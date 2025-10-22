@@ -5,7 +5,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
-import { requireUser } from "./_shared/_auth";
+import { requireUser } from "./_shared/auth";
 
 /* ------------------------ Schemas ------------------------ */
 

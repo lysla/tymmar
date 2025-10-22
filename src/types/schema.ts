@@ -12,16 +12,19 @@ export type Setting = {
     updatedAt: Date | string;
 };
 
-export type Employee = {
-    id: number;
+export type EmployeeForm = {
     name: string;
     surname: string;
-    password: string;
-    userId: string | null;
     email: string;
-    startDate: Date | string | null;
-    endDate: Date | string | null;
-    settingsId: number | null;
+    password: string;
+    startDate?: Date | string;
+    endDate?: Date | string;
+    settingsId?: number;
+};
+
+export type Employee = EmployeeForm & {
+    id: number;
+    userId: string | null;
     updatedAt: Date | string;
     createdAt: Date | string;
 };

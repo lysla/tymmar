@@ -79,6 +79,13 @@ export function isDateAllowed(date: Date, startDateISO?: string | null, endDateI
     return isWithinInterval(startOfDay(date), { start, end });
 }
 
+/** Check if a date is before another date (normalizes to 00:00 locally). */
+export function isDateBefore(date: Date | string, compareDate: Date | string): boolean {
+    const d1 = startOfDay(typeof date === "string" ? parseISO(date) : date);
+    const d2 = startOfDay(typeof compareDate === "string" ? parseISO(compareDate) : compareDate);
+    return isBefore(d1, d2);
+}
+
 /* ── convenience helpers used all over the app ─────────────── */
 export function weekDates(weekStart: Date): Date[] {
     const mon = getMonday(weekStart);

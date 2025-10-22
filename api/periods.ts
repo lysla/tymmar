@@ -3,9 +3,9 @@ export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, between, eq } from "drizzle-orm";
-import { db } from "./_shared/_db";
+import { db } from "./_shared/db";
 import { employees, periods, dayEntries } from "../db/schema"; // ⬅️ UPDATED: use dayEntries
-import { requireUser } from "./_shared/_auth";
+import { requireUser } from "./_shared/auth";
 import { addDaysISO, getMondayISO, isDateISO, isoWeekKeyFromMonday } from "./_shared/_date";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

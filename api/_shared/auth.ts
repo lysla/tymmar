@@ -1,7 +1,7 @@
 // api/_shared/_auth.ts
 import type { VercelRequest } from "@vercel/node";
 import { User } from "@supabase/supabase-js";
-import { supabase } from "./_supabase";
+import { supabase } from "./supabase";
 
 /** 👀 useful helpers for logic splitting */
 type HttpErr = Error & { status: number };

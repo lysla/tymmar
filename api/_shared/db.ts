@@ -1,7 +1,7 @@
 // api/_shared/_db.ts
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import * as schema from "./../../db/schema";
+import * as schema from "../../db/schema";
 
 /** 👀 !! we use drizzle ORM to manage database interactions */
 

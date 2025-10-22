@@ -1,0 +1,1 @@
+ALTER VIEW "public"."v_employees" SET (security_invoker = true);

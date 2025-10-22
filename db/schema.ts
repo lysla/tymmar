@@ -7,7 +7,7 @@ remind: all the schemas need to be exported so drizzle-kit can use them
 */
 
 import { sql } from "drizzle-orm";
-import { pgTable, serial, text, integer, date, uuid, index, unique, numeric, pgEnum, timestamp, boolean, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, uuid, index, unique, numeric, pgEnum, timestamp, boolean, uniqueIndex, primaryKey, pgView } from "drizzle-orm/pg-core";
 import { DAY_TYPES } from "../src/types";
 
 export const settings = pgTable(
@@ -48,6 +48,36 @@ export const employees = pgTable(
     },
     (t) => [unique("employees_user_id_uk").on(t.userId), index("employees_start_idx").on(t.startDate), index("employees_end_idx").on(t.endDate), index("employees_settings_idx").on(t.settingsId)]
 ).enableRLS();
+
+export const vEmployees = pgView("v_employees", {
+    id: integer("id").notNull(),
+    name: text("name").notNull(),
+    surname: text("surname").notNull(),
+    userId: uuid("user_id").notNull(),
+    settingsId: integer("settings_id"),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    email: text("email").notNull(),
+}).with({
+    securityInvoker: true,
+}).as(sql`
+  select
+    e.id,
+    e.name,
+    e.surname,
+    e.user_id,
+    e.settings_id,
+    e.start_date,
+    e.end_date,
+    e.created_at,
+    e.updated_at,
+    u.email
+  from public.employees e
+  left join auth.users u
+    on u.id = e.user_id
+`);
 
 export const dayTypeEnum = pgEnum("day_type", DAY_TYPES);
 
