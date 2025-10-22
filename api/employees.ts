@@ -24,6 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await deleteEmployees(req, res);
         }
 
+        /** 👀 any other method is not allowed */
         return res.status(405).send("Method Not Allowed");
     } catch (e: any) {
         return res.status(e?.status ?? 500).json({ error: e?.message ?? "Server error" });
