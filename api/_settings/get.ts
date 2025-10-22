@@ -1,12 +1,12 @@
-// api/_employees/get.ts
+// api/_settings/get.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireAdmin, requireUser } from "../_shared/auth";
 import { db } from "../_shared/db";
-import { vEmployees } from "../../db/schema";
-import { Employee } from "../../src/types";
+import { settings } from "../../db/schema";
+import { Setting } from "../../src/types";
 import { eq } from "drizzle-orm";
 
-export const getEmployees = async function (req: VercelRequest, res: VercelResponse) {
+export const getSettings = async function (req: VercelRequest, res: VercelResponse) {
     /** 👀 check if the request is from an admin user, cause it can be handled differently for non-admins */
     let isAdmin = false;
     let caller = null;
@@ -23,25 +23,26 @@ export const getEmployees = async function (req: VercelRequest, res: VercelRespo
 
         if (req.query.id) {
             const id = Number(req.query.id);
-            const [row] = await db.select().from(vEmployees).where(eq(vEmployees.id, id)).limit(1);
+            const [row] = await db.select().from(settings).where(eq(settings.id, id)).limit(1);
 
             if (!row) return res.status(404).json({ error: "Not found" });
 
-            return res.status(200).json({ employee: row as Employee });
+            return res.status(200).json({ setting: row as Setting });
         }
 
-        const rows = await db.select().from(vEmployees);
+        const rows = await db.select().from(settings);
 
-        return res.status(200).json({ employees: rows as Employee[] });
+        return res.status(200).json({ settings: rows as Setting[] });
     } else {
         /** 👀 if it's not admin and neither a regular user, return unauthorized */
 
         if (!caller) return res.status(401).json({ error: "Unauthorized" });
 
-        /** 👀 the regular user can only retrieve their own employee record */
+        /** 👀 the regular user can only retrieve their own setting, which should be the default one */
+        /** TODO: retrieve the setting from the employee settingId if possible */
 
-        const [row] = await db.select().from(vEmployees).where(eq(vEmployees.userId, caller.id)).limit(1);
+        const [row] = await db.select().from(settings).where(eq(settings.isDefault, true)).limit(1);
 
-        return res.status(200).json({ employee: row as Employee });
+        return res.status(200).json({ setting: row as Setting });
     }
 };

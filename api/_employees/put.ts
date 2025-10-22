@@ -9,13 +9,13 @@ import { isDateBefore } from "../../src/helpers";
 import { supadmin } from "../_shared/supabase";
 
 export const putEmployees = async function (req: VercelRequest, res: VercelResponse) {
-    /** 👀 only admin can update employees */
+    /** 👀 only admin can update records */
     await requireAdmin(req);
 
     const id = Number(req.body.id);
 
     if (!id || id <= 0) {
-        return res.status(400).json({ error: "Valid employee id is required" });
+        return res.status(400).json({ error: "Valid record id is required" });
     }
 
     const formBody = (req.body as EmployeeForm) ?? {};

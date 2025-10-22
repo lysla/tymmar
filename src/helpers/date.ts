@@ -100,3 +100,13 @@ export function weekDatesISO(weekStart: Date): string[] {
 export function weekISOSet(weekStart: Date): Set<string> {
     return new Set(weekDatesISO(weekStart));
 }
+
+export function hoursAreValid(hours: (string | number)[]): boolean {
+    for (const h of hours) {
+        const n = Number(h);
+        if (isNaN(n) || n < 0 || n > 24) {
+            return false;
+        }
+    }
+    return true;
+}

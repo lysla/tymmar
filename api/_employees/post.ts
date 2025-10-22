@@ -9,7 +9,7 @@ import { isDateBefore } from "../../src/helpers";
 import { supadmin } from "../_shared/supabase";
 
 export const postEmployees = async function (req: VercelRequest, res: VercelResponse) {
-    /** 👀 only admin can create employees */
+    /** 👀 only admin can create records */
     await requireAdmin(req);
 
     const formBody = (req.body as EmployeeForm) ?? {};

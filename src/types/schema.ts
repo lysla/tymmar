@@ -1,14 +1,18 @@
 // src/types/schema.ts
-export type Setting = {
-    id: number;
-    mon_hours: number;
-    tue_hours: number;
-    wed_hours: number;
-    thu_hours: number;
-    fri_hours: number;
-    sat_hours: number;
-    sun_hours: number;
+
+export type SettingForm = {
+    monHours: number | string;
+    tueHours: number | string;
+    wedHours: number | string;
+    thuHours: number | string;
+    friHours: number | string;
+    satHours: number | string;
+    sunHours: number | string;
     isDefault: boolean;
+};
+
+export type Setting = SettingForm & {
+    id: number;
     updatedAt: Date | string;
 };
 
