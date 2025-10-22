@@ -10,7 +10,7 @@ function httpError(status: number, message: string): HttpErr {
     err.status = status;
     return err;
 }
-function getToken(req: VercelRequest) {
+function getToken(req: VercelRequest): string {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
         throw httpError(401, "Missing or invalid Authorization header");

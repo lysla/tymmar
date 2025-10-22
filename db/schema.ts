@@ -8,7 +8,7 @@ remind: all the schemas need to be exported so drizzle-kit can use them
 
 import { sql } from "drizzle-orm";
 import { pgTable, serial, text, integer, date, uuid, index, unique, numeric, pgEnum, timestamp, boolean, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
-import { DAY_TYPES } from "./../src/types/db";
+import { DAY_TYPES } from "../src/types";
 
 export const settings = pgTable(
     "settings",

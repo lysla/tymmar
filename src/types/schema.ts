@@ -1,4 +1,4 @@
-// src/types/db.ts
+// src/types/schema.ts
 export type Setting = {
     id: number;
     mon_hours: number;
