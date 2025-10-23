@@ -1,6 +1,6 @@
 // src/Dashboard.tsx
 import { useAuth } from "./context/AuthContext";
-import { useEmployee } from "./context/EmployeeContext";
+import { EmployeeProvider, useEmployee } from "./context/EmployeeContext";
 import { WeekDataProvider, useWeekDataContext } from "./context/WeekDataContext";
 import WeekNavigator from "./components/WeekNavigator";
 import WeekGrid from "./components/WeekGrid";
@@ -43,9 +43,11 @@ export default function Dashboard() {
 
     // We have a logged-in employee → provide week data with their date bounds.
     return (
-        <WeekDataProvider getAccessToken={getAccessToken} startDateISO={employee?.startDate ?? null} endDateISO={employee?.endDate ?? null}>
-            <DashboardBody onSignOut={signOut} employeeName={employee?.name || ""} />
-        </WeekDataProvider>
+        <EmployeeProvider>
+            <WeekDataProvider getAccessToken={getAccessToken} startDateISO={employee?.startDate ?? null} endDateISO={employee?.endDate ?? null}>
+                <DashboardBody onSignOut={signOut} employeeName={employee?.name || ""} />
+            </WeekDataProvider>
+        </EmployeeProvider>
     );
 }
 
