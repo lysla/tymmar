@@ -4,7 +4,7 @@ import { isDateISO, isoWeekKeyFromMonday, toISO } from "../../src/helpers";
 import { db } from "../_shared/db";
 import { dayEntries, dayExpectations, periods } from "../../db/schema";
 import { and, between, eq } from "drizzle-orm";
-import { DayEntry, DayType } from "../../src/types";
+import { DayEntry, DayType, Period } from "../../src/types";
 
 export const getEntries = async function (req: VercelRequest, res: VercelResponse, empId: number) {
     /** 👀 ensuring that bounds are being passed and are valid */
@@ -84,16 +84,19 @@ export const getEntries = async function (req: VercelRequest, res: VercelRespons
         }
     }
 
+    const totalDaysWithEntries = entriesByDate.length;
+
     return res.status(200).json({
         period: {
             weekKey: p.weekKey,
             weekStartDate: p.weekStartDate,
             closed: Boolean(p.closed),
             totalHours: Number(p.totalHours),
-        },
+        } as Period,
         entriesByDate,
         totals,
         expectationsByDate,
+        totalDaysWithEntries,
         range: { from: startISO, to: endISO },
     });
 };

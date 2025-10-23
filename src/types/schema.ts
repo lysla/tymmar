@@ -70,9 +70,3 @@ export type DayExpectation = {
     updatedAt: Date | string;
     createdAt: Date | string;
 };
-
-export type WeekSummary = {
-    monday: Date | string;
-    daysWithEntries: number;
-    closed: boolean;
-};
