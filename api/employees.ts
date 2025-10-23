@@ -1,10 +1,7 @@
 // api/employees.ts
 export const config = { runtime: "nodejs" };
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getEmployees } from "./_employees/get";
-import { postEmployees } from "./_employees/post";
-import { putEmployees } from "./_employees/put";
-import { deleteEmployees } from "./_employees/delete";
+import { getEmployees, postEmployees, putEmployees, deleteEmployees } from "./_employees";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {

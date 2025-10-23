@@ -1,10 +1,7 @@
 // api/settings.ts
 export const config = { runtime: "nodejs" };
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getSettings } from "./_settings/get";
-import { postSettings } from "./_settings/post";
-import { putSettings } from "./_settings/put";
-import { deleteSettings } from "./_settings/delete";
+import { getSettings, postSettings, putSettings, deleteSettings } from "./_settings";
 
 /* ---------------- handler ---------------- */
 export default async function handler(req: VercelRequest, res: VercelResponse) {

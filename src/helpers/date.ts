@@ -1,6 +1,5 @@
 // src/helpers/date.ts
 import { startOfWeek, endOfWeek, addDays as dfAddDays, format, parseISO, startOfDay, isBefore, isAfter, isWithinInterval } from "date-fns";
-import type { DayType } from "../types";
 
 /* ── constants ─────────────────────────────────────────────── */
 export const MIN_DATE = new Date(-8640000000000000);
@@ -35,9 +34,6 @@ export function weekRangeISO(weekStart: Date): { from: string; to: string } {
 export function isDateISO(s?: string): s is string {
     return Boolean(s && /^\d{4}-\d{2}-\d{2}$/.test(s));
 }
-export function isValidType(t?: string): t is DayType {
-    return !t || t === "work" || t === "sick" || t === "time_off";
-}
 export function addDaysISO(dateISO: string, n: number): string {
     const d = parseISO(dateISO);
     return toISO(dfAddDays(d, n));
@@ -56,6 +52,19 @@ export function isoWeekKeyFromMonday(mondayISO: string): string {
 
 export function fmtDayLabel(d: Date): string {
     return format(d, "EEE dd/MM");
+}
+
+/**
+ * Returns the English weekday name ("monday", "tuesday", …)
+ * based on the given ISO date string, using UTC time.
+ */
+export function weekdayNameUTC(dateISO: string): string {
+    const date = parseISO(dateISO);
+
+    // Adjust to UTC — `format` uses the local timezone by default
+    const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+
+    return format(utcDate, "EEEE").toLowerCase();
 }
 
 /* ── bounds + predicates ───────────────────────────────────── */

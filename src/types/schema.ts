@@ -43,7 +43,19 @@ export type DayEntry = {
     note: string | null;
     workDate: string;
     type: DayType;
-    hours: number;
+    hours: number | string;
+    updatedAt: Date | string;
+    createdAt: Date | string;
+};
+
+export type Period = {
+    id: number;
+    employeeId: number;
+    weekKey: string;
+    weekStartDate: string | Date;
+    closed: boolean;
+    closedAt: Date | string | null;
+    totalHours?: number | string;
     updatedAt: Date | string;
     createdAt: Date | string;
 };
