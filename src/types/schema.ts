@@ -60,6 +60,8 @@ export type Period = {
     createdAt: Date | string;
 };
 
+export type PeriodAction = "close" | "reopen";
+
 export type DayExpectation = {
     id: number;
     employeeId: number;

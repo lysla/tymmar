@@ -19,15 +19,12 @@ async function getExpectedHoursForDate(empId: number, empSettingsId: number | nu
         sunHours: 0,
     };
 
-    let settRow = null;
-    /** 👀 check if employee has specific settings on */
-    if (empSettingsId) {
-        [settRow] = await db.select().from(settings).where(eq(settings.id, empSettingsId)).limit(1);
-    }
-    /** 👀 if not, retrieve default settings */
-    if (!settRow) {
-        [settRow] = await db.select().from(settings).where(eq(settings.isDefault, true)).limit(1);
-    }
+    /** 👀 check if employee has specific settings on, if not retrieve default settings */
+    const [settRow] = await db
+        .select()
+        .from(settings)
+        .where(empSettingsId ? eq(settings.id, empSettingsId) : eq(settings.isDefault, true))
+        .limit(1);
 
     /** 👀 if some settings are found, use them */
     if (settRow) {
@@ -127,7 +124,7 @@ export const putEntries = async function (req: VercelRequest, res: VercelRespons
         }
 
         /** 👀 delete existing rows for these dates */
-        await tx.delete(dayEntries).where(and(eq(dayEntries.employeeId, empId), inArray(dayEntries.workDate, Object.keys(dayEntries))));
+        await tx.delete(dayEntries).where(and(eq(dayEntries.employeeId, empId), inArray(dayEntries.workDate, Object.keys(entriesByDate))));
 
         /** 👀 insert new rows */
         for (const [d, entries] of Object.entries(entriesByDate)) {
