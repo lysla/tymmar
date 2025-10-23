@@ -1,8 +1,8 @@
-// src/context/AuthContext
+// src/context/AuthContext.tsx
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../supabase";
-import { AuthContext, type AuthContextType } from "../hooks/useAuth";
+import { AuthContext, type AuthContextType } from "../hooks";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);

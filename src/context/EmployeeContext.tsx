@@ -1,68 +1,69 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useAuth } from "./AuthContext";
+// src/context/EmployeeContext.tsx
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { Employee } from "../types";
-
-type EmployeeValue = {
-    status: "idle" | "loading" | "ok" | "missing" | "error";
-    employee: Employee | null;
-    refetch: () => Promise<void>;
-};
-
-const EmployeeContext = createContext<EmployeeValue | null>(null);
+import { EmployeeContext, type EmployeeContextType } from "../hooks/useEmployee";
+import { useAuth } from "../hooks/useAuth";
 
 export function EmployeeProvider({ children }: { children: React.ReactNode }) {
     const { user, getAccessToken } = useAuth();
     const [employee, setEmployee] = useState<Employee | null>(null);
-    const [status, setStatus] = useState<EmployeeValue["status"]>("idle");
-    const fetchedRef = useRef<string | null>(null); // store last fetched userId
+    const [status, setStatus] = useState<EmployeeContextType["status"]>("idle");
+    const fetchedRef = useRef<string | null>(null);
 
-    const load = async () => {
-        if (!user) {
-            setEmployee(null);
-            setStatus("idle");
-            fetchedRef.current = null;
-            return;
-        }
-        // avoid duplicate fetch if already fetched for this userId
-        if (fetchedRef.current === user.id && (status === "ok" || status === "missing")) return;
-
-        setStatus("loading");
-        try {
-            const token = await getAccessToken();
-            if (!token) {
+    const loadEmployee = useCallback(
+        async (force = false) => {
+            /** 👀 if there is no authenticated user, reset all and do nothing */
+            if (!user) {
                 setEmployee(null);
-                setStatus("missing");
-                fetchedRef.current = user.id;
+                setStatus("idle");
+                fetchedRef.current = null;
                 return;
             }
-            const res = await fetch("/api/employees?id=me", {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            const json = await res.json();
-            setEmployee(json.employee ?? null);
-            setStatus(json.employee ? "ok" : "missing");
-            fetchedRef.current = user.id;
-        } catch {
-            setEmployee(null);
-            setStatus("error");
-            fetchedRef.current = user.id;
-        }
-    };
+
+            /** 👀 if the employee is already fetched for this user and not forcing a refetch, do nothing */
+            if (!force && fetchedRef.current === user.id && (status === "ok" || status === "missing")) {
+                return;
+            }
+
+            /** 👀 otherwise start loading before fetching the employee  */
+            setStatus("loading");
+            try {
+                const token = await getAccessToken();
+                if (!token) {
+                    setEmployee(null);
+                    setStatus("error");
+                    return;
+                }
+                /** 👀 fetch self employee  */
+                const res = await fetch("/api/employees?id=me", {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                const json = await res?.json();
+                setEmployee(json.employee ?? null);
+                setStatus(json.employee ? "ok" : "missing");
+
+                /** 👀 save ref of the employee (using ref to cache it)  */
+                fetchedRef.current = user.id;
+            } catch {
+                setEmployee(null);
+                setStatus("error");
+            }
+        },
+        [getAccessToken, status, user]
+    );
 
     useEffect(() => {
-        // run on mount and whenever the user id changes
-        void load();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.id]);
+        loadEmployee(false);
+    }, [loadEmployee]);
 
-    const value = useMemo<EmployeeValue>(() => ({ status, employee, refetch: load }), [status, employee]);
+    const value = useMemo<EmployeeContextType>(
+        () => ({
+            status,
+            employee,
+            refetch: () => loadEmployee(true),
+        }),
+        [status, employee, loadEmployee]
+    );
 
     return <EmployeeContext.Provider value={value}>{children}</EmployeeContext.Provider>;
-}
-
-export function useEmployee() {
-    const ctx = useContext(EmployeeContext);
-    if (!ctx) throw new Error("useEmployee must be used within <EmployeeProvider>");
-    return ctx;
 }
