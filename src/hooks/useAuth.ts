@@ -1,67 +1,21 @@
-import { useEffect, useState } from "react";
+// src/hooks/useAuth.ts
 import type { User } from "@supabase/supabase-js";
-import { supabase } from "../supabase";
+import { createContext, useContext } from "react";
 
-type AuthState = {
+/** 👀 type for what this context offers */
+export type AuthContextType = {
     user: User | null;
     loading: boolean;
     isAdmin: boolean;
-    signInWithPassword: (email: string, password: string) => Promise<{ error?: string; user?: User | null }>;
-    signOut: () => Promise<void>;
     getAccessToken: () => Promise<string | undefined>;
+    signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
+    signOut: () => Promise<void>;
 };
 
-export function useAuth(): AuthState {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
-    const isAdmin = Boolean((user?.app_metadata as Record<string, unknown> | undefined)?.is_admin);
-
-    useEffect(() => {
-        let active = true;
-
-        (async () => {
-            const { data } = await supabase.auth.getSession();
-            if (!active) return;
-            setUser(data.session?.user ?? null);
-            setLoading(false);
-        })();
-
-        const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-            if (!active) return;
-            setUser(session?.user ?? null);
-            setLoading(false);
-        });
-
-        return () => {
-            active = false;
-            sub.subscription.unsubscribe();
-        };
-    }, []);
-
-    async function signInWithPassword(email: string, password: string) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) return { error: error.message };
-
-        // 🔑 fetch the fresh user from the *new* session
-        const {
-            data: { user },
-        } = await supabase.auth.getUser();
-        // ensure context updates immediately
-        setUser(user ?? null);
-
-        return { user: user ?? null };
-    }
-
-    async function signOut() {
-        await supabase.auth.signOut();
-        setUser(null);
-    }
-
-    async function getAccessToken() {
-        const { data } = await supabase.auth.getSession();
-        return data.session?.access_token;
-    }
-
-    return { user, loading, isAdmin, signInWithPassword, signOut, getAccessToken };
+export function useAuth() {
+    const ctx = useContext(AuthContext);
+    if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+    return ctx;
 }
