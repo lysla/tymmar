@@ -133,11 +133,25 @@ export const periods = pgTable(
     (t) => [unique("periods_employee_week_uk").on(t.employeeId, t.weekKey), index("periods_closed_weekstart_idx").on(t.closed, t.weekStartDate), index("periods_emp_weekstart_idx").on(t.employeeId, t.weekStartDate)]
 ).enableRLS();
 
+export const customers = pgTable(
+    "customers",
+    {
+        id: serial("id").primaryKey(),
+        title: text("title").notNull(),
+        description: text("description"),
+        createdBy: uuid("created_by").notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    },
+    (t) => [index("customers_created_by_idx").on(t.createdBy)]
+).enableRLS();
+
 /** 👀 to review later -- connected with Ale's project */
 export const projects = pgTable(
     "projects",
     {
         id: serial("id").primaryKey(),
+        customerId: integer("customer_id").references(() => customers.id, { onDelete: "set null" }),
         title: text("title").notNull(),
         description: text("description"),
         startDate: date("start_date"),

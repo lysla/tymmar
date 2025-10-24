@@ -127,6 +127,13 @@
       "when": 1761292191423,
       "tag": "0017_quick_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1761294426201,
+      "tag": "0018_magical_moonstone",
+      "breakpoints": true
     }
   ]
 }
