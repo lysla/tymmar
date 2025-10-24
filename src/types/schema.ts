@@ -21,8 +21,8 @@ export type EmployeeForm = {
     surname: string;
     email: string;
     password: string;
-    startDate?: Date | string;
-    endDate?: Date | string;
+    startDate: Date | string | null;
+    endDate: Date | string | null;
     settingsId?: number;
 };
 

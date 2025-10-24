@@ -10,9 +10,11 @@ export type PeriodDataContextType = {
     loading: boolean;
     error: string | null;
     /** 👀 period start */
-    fromISO: string;
+    fromDate: Date;
+    fromDateISO: string;
     /** 👀 period end */
-    toISO: string;
+    toDate: Date;
+    toDateISO: string;
     /** 👀 all dates within the period */
     days: Date[];
     daysISO: string[];
@@ -44,8 +46,6 @@ export type PeriodDataContextType = {
     addEntry: (date: Date) => void;
     updateEntry: (date: Date, index: number, patch: Partial<DayEntry>) => void;
     removeEntry: (date: Date, index: number) => void;
-    // what is this??
-    setVal: (date: Date, hours: number) => void;
     /** 👀 entries and period management functions */
     handleSaveWeek: () => Promise<void>;
     handleCloseOrReopen: () => Promise<void>;

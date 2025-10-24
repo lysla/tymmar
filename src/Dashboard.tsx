@@ -1,14 +1,14 @@
 // src/Dashboard.tsx
-import { useAuth } from "./context/AuthContext";
-import { EmployeeProvider, useEmployee } from "./context/EmployeeContext";
-import { WeekDataProvider, useWeekDataContext } from "./context/PeriodDataContext";
+import { EmployeeProvider } from "./context/EmployeeContext";
+import { PeriodDataProvider } from "./context/PeriodDataContext";
 import WeekNavigator from "./components/WeekNavigator";
 import WeekGrid from "./components/WeekGrid";
 import AIComposer from "./components/AIComposer";
 import FloatingToolbar from "./components/FloatingToolbar";
+import { useAuth, useEmployee, usePeriodDataContext } from "./hooks";
 
 export default function Dashboard() {
-    const { signOut, getAccessToken } = useAuth();
+    const { signOut } = useAuth();
     const { status, employee, refetch } = useEmployee();
 
     // Auth/employee states
@@ -44,18 +44,18 @@ export default function Dashboard() {
     // We have a logged-in employee → provide week data with their date bounds.
     return (
         <EmployeeProvider>
-            <WeekDataProvider getAccessToken={getAccessToken} startDateISO={employee?.startDate ?? null} endDateISO={employee?.endDate ?? null}>
+            <PeriodDataProvider employee={employee!}>
                 <DashboardBody onSignOut={signOut} employeeName={employee?.name || ""} />
-            </WeekDataProvider>
+            </PeriodDataProvider>
         </EmployeeProvider>
     );
 }
 
 function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; employeeName: string }) {
-    const d = useWeekDataContext();
+    const d = usePeriodDataContext();
 
     // Wait for settings to load to avoid flashing fallback expected hours
-    if (d.loadingSettings) {
+    if (d.loading) {
         return (
             <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
                 <img src="/images/loading.svg" alt="Loading…" className="m-auto" />
@@ -117,17 +117,17 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
 
                         <div className="w-auto grow">
                             {/* Closed badge */}
-                            {!d.weekErr && d.period?.closed && (
+                            {!d.error && d.period?.closed && (
                                 <p className="error mb-4">
                                     <span>This period is closed.</span>
                                 </p>
                             )}
 
                             {/* AI composer */}
-                            {!d.weekErr && <AIComposer />}
+                            {!d.error && <AIComposer />}
 
                             {/* Weekly totals */}
-                            {!d.weekErr && !d.loadingWeek && (
+                            {!d.error && !d.loading && (
                                 <div className="py-8">
                                     <div className="flex items-end">
                                         <span className="progress progress--alt [ mr-2 ]" title={`${weekPct}%`}>
@@ -147,18 +147,18 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
                     </div>
 
                     {/* Loading/Error */}
-                    {d.loadingWeek && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
-                    {d.weekErr && !d.loadingWeek && (
+                    {d.loading && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
+                    {d.error && !d.loading && (
                         <p className="py-6 text-center error">
-                            <span>{d.weekErr}</span>
+                            <span>{d.error}</span>
                         </p>
                     )}
 
                     {/* Grid */}
-                    {!d.loadingWeek && !d.weekErr && <WeekGrid />}
+                    {!d.loading && !d.error && <WeekGrid />}
 
                     {/* Unsaved edits */}
-                    {!d.loadingWeek && !d.weekErr && !d.isClosed && d.isDirty && (
+                    {!d.loading && !d.error && !d.isClosed && d.isDirty && (
                         <div className="flex items-center justify-end mt-8 text-xs text-secondary">
                             <p>There are unsaved edits! Remember to save!</p>
                         </div>
@@ -171,7 +171,7 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
             </div>
 
             {/* Floating toolbar */}
-            {!d.loadingWeek && <FloatingToolbar />}
+            {!d.loading && <FloatingToolbar />}
         </>
     );
 }

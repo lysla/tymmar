@@ -1,20 +1,56 @@
 // src/context/PeriodDataContext.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PeriodDataContext, type PeriodDataContextType } from "../hooks/usePeriodDataContext";
+import { PeriodDataContext, type EntriesByDate, type PeriodDataContextType } from "../hooks/usePeriodDataContext";
 import { addDays, getMonday, toISO, weekRangeISO, clampMondayISO, isDateAllowed } from "../helpers";
-import { fetchSettings, patchPeriod, fetchWeek, replaceDayEntries, fetchWeekSummaries, type Settings, type PeriodInfo, type EntriesByDate } from "../services";
-import { parseISO, startOfDay, isBefore, isAfter, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
-import type { DayEntry as DayEntryType } from "../types";
+import { parseISO, startOfDay, isBefore, isAfter, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
+import type { DayEntry, Employee, Period, Setting } from "../types";
+import { useAuth } from "../hooks";
 
-// shallow comparator for entries (per-date)
+/* 
+async function replaceDayEntries(entriesByDate: EntriesByDate, token?: string) {
+    const r = await fetch(`/api/day_entries`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ mode: "replace-day-entries", entriesByDate }),
+    });
+    const json = await r.json();
+    if (!r.ok) throw new Error(json?.error || "Save failed");
+    return json as { ok: true; dates: number };
+}
+
+async function patchPeriod(action: "close" | "reopen", weekStart: string, token?: string) {
+    const r = await fetch("/api/periods", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ action, weekStart }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data?.error || "Action failed");
+    return data;
+}
+
+async function fetchWeekSummaries(fromISO: string, toISO: string, token?: string, opts?: { signal?: AbortSignal }) {
+    const r = await fetch(`/api/week_summaries?from=${fromISO}&to=${toISO}`, {
+        method: "GET",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: opts?.signal,
+    });
+    if (!r.ok) throw new Error("Failed to load week summaries");
+    return r.json() as Promise<{ summaries: any[]; range: { from: string; to: string } }>;
+}*/
+
+/** 👀 helpers that tells us if the draft entries are != then perms => isDirty */
 function equalEntriesForDates(a: EntriesByDate, b: EntriesByDate, dates: string[]) {
     for (const d of dates) {
         const aa = a[d] ?? [];
         const bb = b[d] ?? [];
         if (aa.length !== bb.length) return false;
         for (let i = 0; i < aa.length; i++) {
-            const x = aa[i] || ({} as Partial<DayEntryType>);
-            const y = bb[i] || ({} as Partial<DayEntryType>);
+            const x = aa[i] || ({} as Partial<DayEntry>);
+            const y = bb[i] || ({} as Partial<DayEntry>);
             if (x.type !== y.type || Number(x.hours) !== Number(y.hours) || (x.projectId ?? null) !== (y.projectId ?? null) || (x.note ?? "") !== (y.note ?? "")) {
                 return false;
             }
@@ -23,93 +59,81 @@ function equalEntriesForDates(a: EntriesByDate, b: EntriesByDate, dates: string[
     return true;
 }
 
-export function PeriodDataProvider({ children, getAccessToken, startDateISO, endDateISO }: { children: React.ReactNode; getAccessToken: () => Promise<string | undefined>; startDateISO?: string | null; endDateISO?: string | null }) {
-    const startBound = startDateISO ?? null;
-    const endBound = endDateISO ?? null;
-    const boundsReady = true;
+export function PeriodDataProvider({ children, employee }: { children: React.ReactNode; employee: Employee }) {
+    const { getAccessToken } = useAuth();
 
-    // week state
-    const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
-    const weekStartISO = useMemo(() => toISO(weekStart), [weekStart]);
-    const { from, to } = useMemo(() => weekRangeISO(weekStart), [weekStart]);
-    const currentKey = `${from}|${to}`;
-    const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
-    const weekDatesISO = useMemo(() => days.map(toISO), [days]);
+    /** 👀 loading and errors */
+    const [loadingSettings, setLoadingSettings] = useState(false);
+    const [loadingPeriodData, setLoadingPeriodData] = useState(false);
 
-    // hydration/dedupe
-    const fetchedKeysRef = useRef<Set<string>>(new Set());
-    const [loadedKey, setLoadedKey] = useState<string | null>(null);
-    const [fetching, setFetching] = useState(false);
-    const loadingWeek = fetching || loadedKey !== currentKey;
+    const loading = useMemo(() => loadingSettings && loadingPeriodData, [loadingSettings, loadingPeriodData]);
+    const [error, setError] = useState<string | null>(null);
 
-    // navigation + visible month
-    const [visibleMonth, setVisibleMonth] = useState<Date>(() => startOfMonth(weekStart));
-    const jumpToWeek = useCallback(
-        (mondayISO: string) => {
-            const clamped = clampMondayISO(mondayISO, startBound, endBound);
-            const monday = parseISO(clamped);
-            const r = weekRangeISO(monday);
-            fetchedKeysRef.current.delete(`${r.from}|${r.to}`);
-            setLoadedKey(null);
-            setWeekStart(monday);
-            setVisibleMonth(startOfMonth(monday));
-        },
-        [startBound, endBound]
-    );
-    const prevWeek = useCallback(() => {
-        setWeekStart((cur) => {
-            const nextMonday = parseISO(clampMondayISO(toISO(addDays(cur, -7)), startBound, endBound));
-            const r = weekRangeISO(nextMonday);
-            fetchedKeysRef.current.delete(`${r.from}|${r.to}`);
-            setLoadedKey(null);
-            setVisibleMonth(startOfMonth(nextMonday));
-            return nextMonday;
+    /** 👀 period start date */
+    const [fromDate, setFromDate] = useState<Date>(() => getMonday(new Date()));
+
+    /** 👀 period bounds derived from fromDate */
+    const toDate = useMemo(() => endOfWeek(fromDate, { weekStartsOn: 1 }), [fromDate]);
+    const fromDateISO = useMemo(() => toISO(fromDate), [fromDate]);
+    const toDateISO = useMemo(() => toISO(toDate), [toDate]);
+
+    /** 👀 period key */
+    const [currentKey, setCurrentKey] = useState<string>(`${fromDateISO}|${toDateISO}`);
+
+    /** 👀 days in the period */
+    const { days, daysISO } = useMemo(() => {
+        const days = eachDayOfInterval({
+            start: startOfDay(fromDate),
+            end: startOfDay(toDate),
         });
-    }, [startBound, endBound]);
-    const nextWeek = useCallback(() => {
-        setWeekStart((cur) => {
-            const nextMonday = parseISO(clampMondayISO(toISO(addDays(cur, 7)), startBound, endBound));
-            const r = weekRangeISO(nextMonday);
-            fetchedKeysRef.current.delete(`${r.from}|${r.to}`);
-            setLoadedKey(null);
-            setVisibleMonth(startOfMonth(nextMonday));
-            return nextMonday;
-        });
-    }, [startBound, endBound]);
+        return { days, daysISO: days.map(toISO) };
+    }, [fromDate, toDate]);
 
-    // settings
-    const [settings, setSettings] = useState<Settings | null>(null);
-    const [settingsLoaded, setSettingsLoaded] = useState(false);
+    /** 👀 calendar navigation by month */
+    const [visibleMonth, setVisibleMonth] = useState<Date>(() => startOfMonth(fromDate));
+    const jumpToPeriod = useCallback((fromDateISO: string) => {
+        const f = parseISO(fromDateISO);
+        const t = endOfWeek(f, { weekStartsOn: 1 });
+        setCurrentKey(`${f}|${t}`);
+        setFromDate(f);
+        setVisibleMonth(startOfMonth(f));
+    }, []);
 
-    // data & derived
-    const [period, setPeriod] = useState<PeriodInfo | null>(null);
+    /** 👀 settings for the current period */
+    const [settings, setSettings] = useState<Setting | null>(null);
+
+    /** 👀 period data */
+    const [period, setPeriod] = useState<Period | null>(null);
+
+    /** 👀 entries perm and draft */
     const [entriesByDate, setEntriesByDate] = useState<EntriesByDate>({});
     const [draftEntriesByDate, setDraftEntriesByDate] = useState<EntriesByDate>({});
+
+    /** 👀 hour expectations mapping */
     const [expectationsByDate, setExpectationsByDate] = useState<Record<string, number>>({});
-    const [weekErr, setWeekErr] = useState<string | null>(null);
-
     const expectedByDay = useMemo(() => {
-        const fallback = settings ? ([settings.mon, settings.tue, settings.wed, settings.thu, settings.fri, settings.sat, settings.sun] as const) : ([8, 8, 8, 8, 8, 0, 0] as const);
-        return weekDatesISO.map((iso, i) => (typeof expectationsByDate[iso] === "number" ? expectationsByDate[iso] : fallback[i] ?? 0)) as readonly number[];
-    }, [settings, expectationsByDate, weekDatesISO]);
+        const fallback = settings ? [settings.monHours, settings.tueHours, settings.wedHours, settings.thuHours, settings.friHours, settings.satHours, settings.sunHours] : [8, 8, 8, 8, 8, 0, 0];
+        return daysISO.map((iso, i) => (typeof expectationsByDate[iso] === "number" ? expectationsByDate[iso] : fallback[i] ?? 0)) as readonly number[];
+    }, [settings, expectationsByDate, daysISO]);
 
+    /** 👀 current period info */
     const weekTotal = useMemo(
         () =>
-            weekDatesISO.reduce((sum, iso) => {
+            daysISO.reduce((sum, iso) => {
                 const rows = draftEntriesByDate[iso] ?? [];
                 return sum + rows.reduce((s, r) => s + Number(r.hours || 0), 0);
             }, 0),
-        [draftEntriesByDate, weekDatesISO]
+        [draftEntriesByDate, daysISO]
     );
     const weekExpected = expectedByDay.reduce((a, b) => a + b, 0);
     const weekPct = weekExpected > 0 ? Math.max(0, Math.min(100, Math.round((weekTotal / weekExpected) * 100))) : 0;
     const isClosed = Boolean(period?.closed);
-    const isDirty = useMemo(() => !equalEntriesForDates(draftEntriesByDate, entriesByDate, weekDatesISO), [draftEntriesByDate, entriesByDate, weekDatesISO]);
+    const isDirty = useMemo(() => !equalEntriesForDates(draftEntriesByDate, entriesByDate, daysISO), [draftEntriesByDate, entriesByDate, daysISO]);
 
-    // edit helpers
+    /** 👀 entry ui management functions */
     const addEntry = useCallback(
         (date: Date) => {
-            if (!isDateAllowed(date, startBound, endBound)) return;
+            if (!isDateAllowed(date, employee?.startDate, employee?.endDate)) return;
             const iso = toISO(date);
             setDraftEntriesByDate((cur) => {
                 const rows = cur[iso] ? [...cur[iso]] : [];
@@ -117,9 +141,9 @@ export function PeriodDataProvider({ children, getAccessToken, startDateISO, end
                 return { ...cur, [iso]: rows };
             });
         },
-        [startBound, endBound]
+        [employee?.startDate, employee?.endDate]
     );
-    const updateEntry = useCallback((date: Date, index: number, patch: Partial<DayEntryType>) => {
+    const updateEntry = useCallback((date: Date, index: number, patch: Partial<DayEntry>) => {
         const iso = toISO(date);
         setDraftEntriesByDate((cur) => {
             const rows = cur[iso] ? [...cur[iso]] : [];
@@ -137,76 +161,50 @@ export function PeriodDataProvider({ children, getAccessToken, startDateISO, end
             return { ...cur, [iso]: rows };
         });
     }, []);
-    const setVal = useCallback(
-        (date: Date, hours: number) => {
-            if (!isDateAllowed(date, startBound, endBound)) return;
-            const iso = toISO(date);
-            setDraftEntriesByDate((cur) => {
-                const rows = cur[iso] ? [...cur[iso]] : [];
-                if (rows.length === 0) rows.push({ type: "work", hours, projectId: null, note: null });
-                else rows[0] = { ...rows[0], hours };
-                return { ...cur, [iso]: rows };
-            });
-        },
-        [startBound, endBound]
-    );
 
-    // settings load once
+    /** 👀 retrieve the current setting for the employee */
     useEffect(() => {
-        let active = true;
-        const toLocalSettings = (src: any): Settings => ({
-            mon: Number(src.mon ?? src.mon_hours ?? 8),
-            tue: Number(src.tue ?? src.tue_hours ?? 8),
-            wed: Number(src.wed ?? src.wed_hours ?? 8),
-            thu: Number(src.thu ?? src.thu_hours ?? 8),
-            fri: Number(src.fri ?? src.fri_hours ?? 8),
-            sat: Number(src.sat ?? src.sat_hours ?? 0),
-            sun: Number(src.sun ?? src.sun_hours ?? 0),
-        });
         (async () => {
+            setLoadingSettings(true);
             try {
                 const token = await getAccessToken();
-                const json = await fetchSettings(token);
-                let chosen: any | null = null;
-                if (json?.settings && Array.isArray(json.settings)) {
-                    chosen = json.settings.find((s: any) => s.isDefault) ?? json.settings[json.settings.length - 1] ?? null;
-                } else if (json?.settings && typeof json.settings === "object") {
-                    chosen = json.settings;
-                } else if (json && typeof json === "object") {
-                    chosen = json;
-                }
-                if (active && chosen) setSettings(toLocalSettings(chosen));
+                const r = await fetch("/api/settings", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                if (!r.ok) throw new Error("Failed to load settings");
+                const { setting } = await r.json();
+                setSettings(setting as Setting);
+            } catch {
+                setSettings(null);
             } finally {
-                if (active) setSettingsLoaded(true);
+                setLoadingSettings(false);
             }
         })();
-        return () => {
-            active = false;
-        };
     }, [getAccessToken]);
 
-    // week load + dedupe
-    const reloadWeek = useCallback(async () => {
-        if (!boundsReady) return;
-        if (fetchedKeysRef.current.has(currentKey)) {
-            setLoadedKey(currentKey);
-            return;
-        }
-        setFetching(true);
+    /** 👀 load all the period data info */
+    const loadPeriod = useCallback(async () => {
+        setLoadingPeriodData(true);
         try {
             const token = await getAccessToken();
-            const json = await fetchWeek(from, to, token);
+            const r = await fetch(`/api/day_entries?from=${from}&to=${to}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!r.ok) throw new Error("Failed to load week");
+            const json = (await r.json()) as {
+                period: Period;
+                entriesByDate: EntriesByDate;
+                totals: Record<string, { totalHours: number; type: DayType | "mixed" }>;
+                expectationsByDate?: Record<string, number>;
+            };
+
             setPeriod(json.period);
             setEntriesByDate(json.entriesByDate || {});
             setDraftEntriesByDate(json.entriesByDate || {});
             setExpectationsByDate(json.expectationsByDate || {});
-            fetchedKeysRef.current.add(currentKey);
-            setLoadedKey(currentKey);
-            setWeekErr(null);
+            setError(null);
         } catch (e: any) {
-            setWeekErr(e?.message || "Failed to load week");
+            setError(e?.message || "Failed to load week");
         } finally {
-            setFetching(false);
+            setLoadingPeriodData(false);
         }
     }, [boundsReady, getAccessToken, from, to, currentKey]);
 
@@ -216,7 +214,7 @@ export function PeriodDataProvider({ children, getAccessToken, startDateISO, end
         const clampedISO = clampMondayISO(curISO, startBound, endBound);
         if (clampedISO !== curISO) {
             setLoadedKey(null);
-            setWeekStart(parseISO(clampedISO));
+            setFromDate(parseISO(clampedISO));
             return;
         }
         if (loadedKey !== currentKey) setLoadedKey(null);
@@ -440,13 +438,12 @@ export function PeriodDataProvider({ children, getAccessToken, startDateISO, end
 
     const value: PeriodDataContextType = {
         // week navigation & range
-        weekStart,
-        weekStartISO,
+        fromISO: weekStartISO,
         from,
         to,
         days,
         weekDatesISO,
-        jumpToWeek,
+        jumpToPeriod,
         prevWeek,
         nextWeek,
 

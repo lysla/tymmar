@@ -81,10 +81,10 @@ export function clampMondayISO(mondayISO: string, startDateISO?: string | null, 
 }
 
 /** Inclusive day-in-range check (normalizes to 00:00 locally). */
-export function isDateAllowed(date: Date, startDateISO?: string | null, endDateISO?: string | null): boolean {
+export function isDateAllowed(date: Date, startDateISO?: string | Date | null, endDateISO?: string | Date | null): boolean {
     if (!startDateISO && !endDateISO) return true;
-    const start = startDateISO ? startOfDay(parseISO(startDateISO)) : MIN_DATE;
-    const end = endDateISO ? startOfDay(parseISO(endDateISO)) : MAX_DATE;
+    const start = startDateISO ? (typeof startDateISO === "string" ? startOfDay(parseISO(startDateISO)) : startOfDay(startDateISO)) : MIN_DATE;
+    const end = endDateISO ? (typeof endDateISO === "string" ? startOfDay(parseISO(endDateISO)) : startOfDay(endDateISO)) : MAX_DATE;
     return isWithinInterval(startOfDay(date), { start, end });
 }
 
