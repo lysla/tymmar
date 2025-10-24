@@ -1,6 +1,6 @@
-// src/context/WeekDataContext.tsx
+// src/context/PeriodDataContext.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { WeekDataContext, type WeekDataContextType } from "../hooks/useWeekDataContext";
+import { PeriodDataContext, type PeriodDataContextType } from "../hooks/usePeriodDataContext";
 import { addDays, getMonday, toISO, weekRangeISO, clampMondayISO, isDateAllowed } from "../helpers";
 import { fetchSettings, patchPeriod, fetchWeek, replaceDayEntries, fetchWeekSummaries, type Settings, type PeriodInfo, type EntriesByDate } from "../services";
 import { parseISO, startOfDay, isBefore, isAfter, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
@@ -23,7 +23,7 @@ function equalEntriesForDates(a: EntriesByDate, b: EntriesByDate, dates: string[
     return true;
 }
 
-export function WeekDataProvider({ children, getAccessToken, startDateISO, endDateISO }: { children: React.ReactNode; getAccessToken: () => Promise<string | undefined>; startDateISO?: string | null; endDateISO?: string | null }) {
+export function PeriodDataProvider({ children, getAccessToken, startDateISO, endDateISO }: { children: React.ReactNode; getAccessToken: () => Promise<string | undefined>; startDateISO?: string | null; endDateISO?: string | null }) {
     const startBound = startDateISO ?? null;
     const endBound = endDateISO ?? null;
     const boundsReady = true;
@@ -438,7 +438,7 @@ export function WeekDataProvider({ children, getAccessToken, startDateISO, endDa
         }
     }, [aiCmd, getAccessToken, expectedByDay, weekDatesISO, startBound, endBound, draftEntriesByDate]);
 
-    const value: WeekDataContextType = {
+    const value: PeriodDataContextType = {
         // week navigation & range
         weekStart,
         weekStartISO,
@@ -498,5 +498,5 @@ export function WeekDataProvider({ children, getAccessToken, startDateISO, endDa
         reloadSummaries,
     };
 
-    return <WeekDataContext.Provider value={value}>{children}</WeekDataContext.Provider>;
+    return <PeriodDataContext.Provider value={value}>{children}</PeriodDataContext.Provider>;
 }

@@ -2,10 +2,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireUser } from "../_shared/auth";
 import { db } from "../_shared/db";
-import { dayEntries, employees, periods } from "../../db/schema";
+import { employees, periods } from "../../db/schema";
 import { Employee, Period, PeriodAction } from "../../src/types";
-import { and, between, eq } from "drizzle-orm";
-import { addDaysISO, toISO } from "../../src/helpers";
+import { and, eq } from "drizzle-orm";
 
 export const patchPeriods = async function (req: VercelRequest, res: VercelResponse) {
     /** 👀 a user must be authenticated */
@@ -26,50 +25,28 @@ export const patchPeriods = async function (req: VercelRequest, res: VercelRespo
     }
 
     await db.transaction(async (tx) => {
-        /** 👀 i need the range to retrive the entries */
-        const startISO = toISO(periodData.weekStartDate!);
-        /** 👀 this only works if the period is always a week */
-        const endISO = addDaysISO(startISO, 6);
-        /** 👀 retrieve the new total to set into the period */
-        const rows = await tx
-            .select()
-            .from(dayEntries)
-            .where(and(eq(dayEntries.employeeId, emp.id!), between(dayEntries.workDate, startISO, endISO)));
-        const total = rows.reduce((acc, r) => acc + Number(r.hours ?? 0), 0);
-
         /** 👀 fetch the period if it exists already */
-        let [p] = await tx
+        const [p] = await tx
             .select()
             .from(periods)
             .where(and(eq(periods.employeeId, emp.id!), eq(periods.weekKey, periodData.weekKey!)))
             .limit(1);
 
-        if (p) {
-            /** 👀 if period exists i update it with the given action, setting new totals too */
-            const now = new Date();
-            const closed = action === "close";
-            await tx
-                .update(periods)
-                .set({
-                    totalHours: total.toFixed(2),
-                    closed,
-                    closedAt: closed ? now : null,
-                    updatedAt: now,
-                })
-                .where(and(eq(periods.employeeId, emp.id!), eq(periods.weekKey, periodData.weekKey!)));
-        } else if (action === "reopen") {
-            /** 👀 if period doesn't exists on a reopen request, create it open */
-            [p] = await tx
-                .insert(periods)
-                .values({
-                    employeeId: emp.id!,
-                    weekKey: periodData.weekKey as string,
-                    weekStartDate: periodData.weekStartDate as string,
-                    closed: false,
-                    totalHours: total.toFixed(2),
-                })
-                .returning();
+        if (!p) {
+            return res.status(404).json({ error: "Period to patch not found." });
         }
+
+        /** 👀 if period exists i update it with the given action */
+        const now = new Date();
+        const closed = action === "close";
+        await tx
+            .update(periods)
+            .set({
+                closed,
+                closedAt: closed ? now : null,
+                updatedAt: now,
+            })
+            .where(and(eq(periods.employeeId, emp.id!), eq(periods.weekKey, periodData.weekKey!)));
     });
 
     return res.status(200).json({});

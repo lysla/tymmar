@@ -1,5 +1,5 @@
 // src/components/AIComposer.tsx
-import { useWeekDataContext } from "../context/WeekDataContext";
+import { useWeekDataContext } from "../context/PeriodDataContext";
 
 export default function AIComposer() {
     const { aiCmd, setAiCmd, aiBusy, aiMsg, handleAIApply, isClosed, loadingWeek } = useWeekDataContext();

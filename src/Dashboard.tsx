@@ -1,7 +1,7 @@
 // src/Dashboard.tsx
 import { useAuth } from "./context/AuthContext";
 import { EmployeeProvider, useEmployee } from "./context/EmployeeContext";
-import { WeekDataProvider, useWeekDataContext } from "./context/WeekDataContext";
+import { WeekDataProvider, useWeekDataContext } from "./context/PeriodDataContext";
 import WeekNavigator from "./components/WeekNavigator";
 import WeekGrid from "./components/WeekGrid";
 import AIComposer from "./components/AIComposer";

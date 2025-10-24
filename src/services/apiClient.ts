@@ -1,14 +1,11 @@
-import type { DayEntry, DayType, WeekSummary } from "../types";
+import type { DayEntry, DayType, Period, Setting } from "../types";
 
-export type Settings = { mon: number; tue: number; wed: number; thu: number; fri: number; sat: number; sun: number };
-export type PeriodInfo = { weekKey: string; weekStartDate: string; closed: boolean; totalHours: number };
-export type EntriesMap = Record<string, { totalHours: number; type: string }>;
-export type EntriesByDate = Record<string, Partial<DayEntry>[]>;
+type EntriesMap = Record<string, { totalHours: number; type: string }>;
 
 export async function fetchSettings(token?: string) {
     const r = await fetch("/api/settings", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!r.ok) throw new Error("Failed to load settings");
-    return (await r.json()) as { settings: Settings };
+    return (await r.json()) as { settings: Setting };
 }
 
 export async function fetchWeek(from: string, to: string, token?: string) {
@@ -17,7 +14,7 @@ export async function fetchWeek(from: string, to: string, token?: string) {
     });
     if (!r.ok) throw new Error("Failed to load week");
     return (await r.json()) as {
-        period: PeriodInfo;
+        period: Period;
         entriesByDate: EntriesByDate;
         totals: Record<string, { totalHours: number; type: DayType | "mixed" }>;
         expectationsByDate?: Record<string, number>;
@@ -56,5 +53,5 @@ export async function fetchWeekSummaries(fromISO: string, toISO: string, token?:
         signal: opts?.signal,
     });
     if (!r.ok) throw new Error("Failed to load week summaries");
-    return r.json() as Promise<{ summaries: WeekSummary[]; range: { from: string; to: string } }>;
+    return r.json() as Promise<{ summaries: any[]; range: { from: string; to: string } }>;
 }

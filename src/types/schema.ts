@@ -56,6 +56,7 @@ export type Period = {
     closed: boolean;
     closedAt: Date | string | null;
     totalHours?: number | string;
+    expectedHours?: number | string;
     updatedAt: Date | string;
     createdAt: Date | string;
 };

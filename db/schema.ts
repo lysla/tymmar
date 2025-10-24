@@ -126,6 +126,7 @@ export const periods = pgTable(
         closed: boolean("closed").notNull().default(false),
         closedAt: timestamp("closed_at", { withTimezone: true }),
         totalHours: numeric("total_hours", { precision: 6, scale: 2 }).default("0").notNull(),
+        expectedHours: numeric("expected_hours", { precision: 6, scale: 2 }).default("0").notNull(),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
         updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     },

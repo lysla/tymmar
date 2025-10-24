@@ -87,12 +87,7 @@ export const getEntries = async function (req: VercelRequest, res: VercelRespons
     const totalDaysWithEntries = entriesByDate.length;
 
     return res.status(200).json({
-        period: {
-            weekKey: p.weekKey,
-            weekStartDate: p.weekStartDate,
-            closed: Boolean(p.closed),
-            totalHours: Number(p.totalHours),
-        } as Period,
+        period: p as Period,
         entriesByDate,
         totals,
         expectationsByDate,

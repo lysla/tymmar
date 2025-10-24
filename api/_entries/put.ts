@@ -98,26 +98,6 @@ export const putEntries = async function (req: VercelRequest, res: VercelRespons
             .where(and(eq(periods.employeeId, empId), eq(periods.weekKey, weekKey)))
             .limit(1);
 
-        /** 👀 if the period doesn't exists yet, we create it, otherwise we update the total hours only */
-        if (!periodRow) {
-            [periodRow] = await tx
-                .insert(periods)
-                .values({
-                    employeeId: empId,
-                    weekKey,
-                    weekStartDate: startISO as string,
-                    closed: false,
-                    totalHours: periodTotalHours.toFixed(2),
-                })
-                .returning();
-        } else {
-            [periodRow] = await tx
-                .update(periods)
-                .set({ totalHours: periodTotalHours.toFixed(2) })
-                .where(and(eq(periods.employeeId, empId), eq(periods.weekKey, weekKey)))
-                .returning();
-        }
-
         /** 👀 ensure that no new hours get registered on closed periods */
         if (periodRow?.closed) {
             throw Object.assign(new Error(`Week ${weekKey} is closed`), { status: 409 });
@@ -147,9 +127,11 @@ export const putEntries = async function (req: VercelRequest, res: VercelRespons
             }
         }
 
-        /** 👀 snapshot the expected hours for all dates touched */
+        /** 👀 snapshot the expected hours for all dates touched and get the expected total */
+        let periodExpectedHours = 0;
         for (const d of Object.keys(entriesByDate)) {
             const expected = await getExpectedHoursForDate(empId, empSettingsId, d);
+            periodExpectedHours += expected ?? 0;
             await tx
                 .insert(dayExpectations)
                 .values({
@@ -164,6 +146,27 @@ export const putEntries = async function (req: VercelRequest, res: VercelRespons
                         updatedAt: new Date(),
                     },
                 });
+        }
+
+        /** 👀 if the period doesn't exists yet, we create it, otherwise we update the totals (hours inserted and expected) only */
+        if (!periodRow) {
+            [periodRow] = await tx
+                .insert(periods)
+                .values({
+                    employeeId: empId,
+                    weekKey,
+                    weekStartDate: startISO as string,
+                    closed: false,
+                    totalHours: periodTotalHours.toFixed(2),
+                    expectedHours: periodExpectedHours.toFixed(2),
+                })
+                .returning();
+        } else {
+            [periodRow] = await tx
+                .update(periods)
+                .set({ totalHours: periodTotalHours.toFixed(2), expectedHours: periodExpectedHours.toFixed(2) })
+                .where(and(eq(periods.employeeId, empId), eq(periods.weekKey, weekKey)))
+                .returning();
         }
     });
 

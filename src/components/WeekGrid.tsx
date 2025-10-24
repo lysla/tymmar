@@ -1,7 +1,7 @@
 // src/components/WeekGrid.tsx
 import { startOfDay, parseISO, isBefore, isAfter, isSameDay } from "date-fns";
 import { fmtDayLabel, toISO } from "../helpers";
-import { useWeekDataContext } from "../context/WeekDataContext";
+import { useWeekDataContext } from "../context/PeriodDataContext";
 
 export default function WeekGrid() {
     const { days, expectedByDay, draftEntriesByDate, addEntry, updateEntry, removeEntry, isClosed, loadingWeek, startDateISO, endDateISO } = useWeekDataContext();
