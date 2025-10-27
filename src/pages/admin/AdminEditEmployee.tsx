@@ -1,13 +1,13 @@
-// src/AdminEditSetting.tsx
+// src/AdminEditEmployee.tsx
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { supabase } from "./supabase";
-import AdminFormSetting, { type FormSettingValues } from "./AdminFormSetting";
-import type { Setting } from "./types";
+import { supabase } from "../../supabase";
+import AdminFormEmployee, { type FormEmployeeValues } from "../../components/admin/AdminFormEmployee";
+import type { Employee } from "../../types";
 
-export default function AdminEditSetting() {
+export function AdminEditEmployee() {
     const { id } = useParams();
-    const [initial, setInitial] = useState<FormSettingValues | null>(null);
+    const [initial, setInitial] = useState<FormEmployeeValues | null>(null);
     const [state, setState] = useState<"loading" | "ok" | "error">("loading");
 
     useEffect(() => {
@@ -16,13 +16,13 @@ export default function AdminEditSetting() {
             try {
                 const { data } = await supabase.auth.getSession();
                 const token = data.session?.access_token;
-                const r = await fetch(`/api/settings?id=${encodeURIComponent(String(id))}`, {
+                const r = await fetch(`/api/employees?id=${encodeURIComponent(String(id))}`, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!active) return;
                 if (!r.ok) return setState("error");
                 const json = await r.json();
-                setInitial(json as Setting);
+                setInitial(json as Employee);
                 setState("ok");
             } catch {
                 setState("error");
@@ -33,10 +33,10 @@ export default function AdminEditSetting() {
         };
     }, [id]);
 
-    async function handleUpdate(values: FormSettingValues) {
+    async function handleUpdate(values: FormEmployeeValues) {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        const r = await fetch("/api/settings", {
+        const r = await fetch("/api/employees", {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ id: Number(id), ...values }),
@@ -48,8 +48,8 @@ export default function AdminEditSetting() {
     return (
         <>
             <div className="flex items-center justify-between">
-                <h1 className="font-serif text-2xl">Edit setting</h1>
-                <Link to="/admin/settings" className="link">
+                <h1 className="font-serif text-2xl">Edit employee</h1>
+                <Link to="/admin" className="link">
                     ← Back to list
                 </Link>
             </div>
@@ -58,10 +58,10 @@ export default function AdminEditSetting() {
                 {state === "loading" && <img src="/images/loading.svg" alt="Loading…" className="py-8 mx-auto" />}
                 {state === "error" && (
                     <p className="error">
-                        <span>Could not load setting.</span>
+                        <span>Could not load employee.</span>
                     </p>
                 )}
-                {state === "ok" && initial && <AdminFormSetting mode="edit" initial={initial} onSubmit={handleUpdate} submitLabel="Save changes" />}
+                {state === "ok" && initial && <AdminFormEmployee mode="edit" initial={initial} onSubmit={handleUpdate} submitLabel="Save changes" />}
             </div>
         </>
     );

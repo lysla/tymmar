@@ -34,6 +34,11 @@ export type Employee = EmployeeForm & {
 };
 
 export const DAY_TYPES = ["work", "sick", "time_off"] as const;
+export const DAY_TYPE_COLORS: Record<DayType, string> = {
+    work: "primary",
+    sick: "secondary",
+    time_off: "tertiary",
+};
 export type DayType = (typeof DAY_TYPES)[number];
 
 export type DayEntry = {

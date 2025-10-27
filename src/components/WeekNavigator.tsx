@@ -1,89 +1,67 @@
+// src/components/WeekNavigator.tsx
 import { useMemo } from "react";
 import { DayPicker } from "react-day-picker";
-import { startOfWeek, endOfWeek, parseISO, startOfMonth, endOfMonth, isWithinInterval, isMonday as dfIsMonday } from "date-fns";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, isMonday } from "date-fns";
 import type { Interval } from "date-fns";
 import { enGB } from "date-fns/locale";
 import { getMonday, toISO } from "../helpers";
-import { useWeekDataContext } from "../context/PeriodDataContext";
-
-function isMonday(d: Date) {
-    return dfIsMonday(d);
-}
+import { usePeriodDataContext } from "../hooks";
 
 export default function WeekNavigator() {
-    const {
-        weekStartISO,
-        jumpToWeek,
-        loadingWeek,
-        startDateISO,
-        endDateISO,
+    const { fromDateISO, fromDate, toDateISO, employeeStartDateISO, employeeEndDateISO, jumpToPeriod, loading, visibleMonth, setVisibleMonth, monthPeriods, periodDaysWithEntries } = usePeriodDataContext();
 
-        // NEW: from context instead of local state/effects
-        visibleMonth,
-        setVisibleMonth,
-        summaries,
-    } = useWeekDataContext();
-
-    const monday = parseISO(weekStartISO);
-
-    // Allowed selection interval
+    /** 👀 make sure the selectable interval is within the employee bounds */
     const allowedInterval: Interval | null = useMemo(() => {
-        const start = startDateISO ? parseISO(startDateISO) : null;
-        const end = endDateISO ? parseISO(endDateISO) : null;
-        if (!start && !end) return null;
+        if (!employeeStartDateISO && !employeeEndDateISO) return null;
         return {
-            start: start ?? new Date(-8640000000000000),
-            end: end ?? new Date(8640000000000000),
+            start: employeeStartDateISO ?? new Date(-8640000000000000),
+            end: employeeEndDateISO ?? new Date(8640000000000000),
         };
-    }, [startDateISO, endDateISO]);
-
-    // Restrict month navigation to bounds (optional)
-    const fromMonth = useMemo(() => (startDateISO ? startOfMonth(parseISO(startDateISO)) : undefined), [startDateISO]);
-    const toMonth = useMemo(() => (endDateISO ? endOfMonth(parseISO(endDateISO)) : undefined), [endDateISO]);
-
-    // Full selected week range (Mon..Sun)
-    const selectedWeekInterval: Interval = useMemo(() => {
-        const start = startOfWeek(monday, { weekStartsOn: 1 });
-        const end = endOfWeek(monday, { weekStartsOn: 1 });
-        return { start, end };
-    }, [monday]);
-
+    }, [employeeStartDateISO, employeeEndDateISO]);
     const isDayAllowed = (day: Date) => !allowedInterval || isWithinInterval(day, allowedInterval);
+    const fromMonth = useMemo(() => (employeeStartDateISO ? startOfMonth(employeeStartDateISO) : undefined), [employeeStartDateISO]);
+    const toMonth = useMemo(() => (employeeEndDateISO ? endOfMonth(employeeEndDateISO) : undefined), [employeeEndDateISO]);
 
+    /* 👀 current selected week interval */
+    const selectedWeekInterval: Interval = useMemo(() => {
+        const start = startOfWeek(fromDateISO, { weekStartsOn: 1 });
+        const end = endOfWeek(toDateISO, { weekStartsOn: 1 });
+        return { start, end };
+    }, [fromDateISO, toDateISO]);
+
+    /* 👀 whichever day gets selected, snap to monday so the period will be its week */
     function handleSelect(day?: Date) {
         if (!day || !isDayAllowed(day)) return;
         const mondayISO = toISO(getMonday(day));
-        jumpToWeek(mondayISO);
+        jumpToPeriod(mondayISO);
     }
 
-    // Modifier predicates: color the Monday cell of each week
+    /* 👀 modifiers for the week UI */
     const isWeekClosed = (day: Date) => {
         if (!isMonday(day)) return false;
         const monISO = toISO(day);
-        const s = summaries[monISO];
+        const s = monthPeriods[monISO];
         return !!s?.closed;
     };
-
     const isWeekFull = (day: Date) => {
         if (!isMonday(day)) return false;
         const monISO = toISO(day);
-        const s = summaries[monISO];
-        return !!s && !s.closed && s.daysWithEntries === 7;
+        const s = monthPeriods[monISO];
+        return !!s && !s.closed && periodDaysWithEntries === 7;
     };
-
     const isWeekDirty = (day: Date) => {
         if (!isMonday(day)) return false;
         const monISO = toISO(day);
-        const s = summaries[monISO];
-        return !!s && !s.closed && s.daysWithEntries > 0 && s.daysWithEntries < 7;
+        const s = monthPeriods[monISO];
+        return !!s && !s.closed && periodDaysWithEntries > 0 && periodDaysWithEntries < 7;
     };
 
     return (
-        <div className={loadingWeek ? "pointer-events-none opacity-60" : ""}>
+        <div className={loading ? "pointer-events-none opacity-60" : ""}>
             <DayPicker
-                key={weekStartISO}
+                key={fromDateISO}
                 mode="single"
-                selected={monday}
+                selected={fromDate}
                 onSelect={handleSelect}
                 onMonthChange={(d) => setVisibleMonth(startOfMonth(d))}
                 month={visibleMonth}

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "./supabase";
+import { supabase } from "../../supabase";
 import { Link } from "react-router";
-import type { Employee } from "./types";
+import type { Employee } from "../../types";
 
-export default function AdminDashboard() {
+export function AdminDashboard() {
     const [list, setList] = useState<Employee[]>([]);
     const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
 

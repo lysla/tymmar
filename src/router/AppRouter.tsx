@@ -1,21 +1,15 @@
-// AppRouter.tsx
+// src/router/AppRouter.tsx
 import { Routes, Route, Navigate } from "react-router";
-import { useAuth } from "./context/AuthContext";
-import { RequireAuth, RequireAdmin } from "./RouteGuards";
-import SignIn from "./SignIn";
-import AdminSignIn from "./AdminSignIn";
-import Dashboard from "./Dashboard";
-import AdminDashboard from "./AdminDashboard";
-import AdminAddEmployee from "./AdminAddEmployee";
-import AdminEditEmployee from "./AdminEditEmployee";
-import AdminSettings from "./AdminSettings";
-import AdminAddSetting from "./AdminAddSetting";
-import AdminEditSetting from "./AdminEditSetting";
-import AdminReports from "./AdminReports";
-import AdminLayout from "./AdminLayout";
+import { useAuth } from "../hooks";
+import { RequireAdmin, RequireAuth } from "./RouteGuards";
+import { Dashboard, SignIn } from "../pages";
+import { AdminLayout } from "../layouts";
+import { AdminAddEmployee, AdminAddSetting, AdminDashboard, AdminEditEmployee, AdminEditSetting, AdminReports, AdminSettings, AdminSignIn } from "../pages/admin";
 
 export default function AppRouter() {
     const { user, isAdmin, loading } = useAuth();
+
+    /** 👀 fallback loading */
     if (loading)
         return (
             <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
@@ -25,12 +19,9 @@ export default function AppRouter() {
 
     return (
         <Routes>
-            {/* Root redirect */}
-            <Route path="/" element={user ? <Navigate to="/app" replace /> : <Navigate to="/signin" replace />} />
-
-            {/* Employee app */}
+            {/** 👀 employee level user routing */}
             <Route
-                path="/app"
+                path="/"
                 element={
                     <RequireAuth>
                         <Dashboard />
@@ -39,7 +30,7 @@ export default function AppRouter() {
             />
             <Route path="/signin" element={user ? <Navigate to="/" replace /> : <SignIn />} />
 
-            {/* Admin app: layout + nested pages */}
+            {/** 👀 admin level user routing */}
             <Route
                 path="/admin"
                 element={
@@ -58,6 +49,7 @@ export default function AppRouter() {
 
             <Route path="/admin/signin" element={user ? isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/" replace /> : <AdminSignIn />} />
 
+            {/** 👀 anything else get rerouted to root */}
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "./supabase";
+import { supabase } from "../../supabase";
 import { Link } from "react-router";
-import type { Setting } from "./types";
+import type { Setting } from "../../types";
 
-export default function AdminSettings() {
+export function AdminSettings() {
     const [list, setList] = useState<Setting[]>([]);
     const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
 

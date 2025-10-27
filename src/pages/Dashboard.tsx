@@ -1,13 +1,13 @@
 // src/Dashboard.tsx
-import { EmployeeProvider } from "./context/EmployeeContext";
-import { PeriodDataProvider } from "./context/PeriodDataContext";
-import WeekNavigator from "./components/WeekNavigator";
-import WeekGrid from "./components/WeekGrid";
-import AIComposer from "./components/AIComposer";
-import FloatingToolbar from "./components/FloatingToolbar";
-import { useAuth, useEmployee, usePeriodDataContext } from "./hooks";
+import { EmployeeProvider } from "../context/EmployeeContext";
+import { PeriodDataProvider } from "../context/PeriodDataContext";
+import WeekNavigator from "../components/WeekNavigator";
+import WeekGrid from "../components/WeekGrid";
+import AIComposer from "../components/AIInput";
+import FloatingToolbar from "../components/ButtonsToolbar";
+import { useAuth, useEmployee, usePeriodDataContext } from "../hooks";
 
-export default function Dashboard() {
+export function Dashboard() {
     const { signOut } = useAuth();
     const { status, employee, refetch } = useEmployee();
 
@@ -135,7 +135,7 @@ function DashboardBody({ onSignOut, employeeName }: { onSignOut: () => void; emp
                                                 <span key={`${seg.type}-${i}`} className={`progress__bar progress__bar--alt ${TYPE_COLORS[seg.type]}`} style={{ width: `${seg.widthPct}%` }} />
                                             ))}
                                         </span>
-                                        <p className="text-xs text-primary leading-[1]">{weekPct}%</p>
+                                        <p className="text-xs text-primary leading-none">{weekPct}%</p>
                                     </div>
                                     <div className="flex max-md:flex-col md:items-center gap-x-8">
                                         <div className="text-xs md:text-center mt-4 text-primary">Expected total hours: {d.weekExpected}</div>

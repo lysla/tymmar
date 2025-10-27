@@ -1,9 +1,9 @@
 import { useState } from "react";
-import type { Employee } from "./types";
+import type { Employee } from "../../types";
 
 export type FormEmployeeValues = Partial<Employee>;
 
-export default function AdminFormEmployee({
+export function AdminFormEmployee({
     initial,
     mode, // "create" | "edit"
     onSubmit,

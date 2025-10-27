@@ -140,6 +140,8 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         })();
     }, [getAccessToken]);
 
+    const [periodDaysWithEntries, setPeriodDaysWithEntries] = useState<number>(0);
+
     /** 👀 load all the period data entries and info */
     const loadPeriod = useCallback(async () => {
         setLoadingPeriodData(true);
@@ -153,20 +155,22 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
                 period: Period;
                 entriesByDate: EntriesByDate;
                 totals: Record<string, { totalHours: number; type: DayType | "mixed" }>;
-                expectationsByDate?: Record<string, number>;
+                expectationsByDate: Record<string, number>;
+                totalDaysWithEntries: number;
             };
 
             setPeriod(json.period);
             setEntriesByDate(json.entriesByDate || {});
             setDraftEntriesByDate(json.entriesByDate || {});
             setExpectationsByDate(json.expectationsByDate || {});
+            setPeriodDaysWithEntries(json.totalDaysWithEntries || 0);
             setError(null);
         } catch (e: any) {
             setError(e?.message || "Failed to load week");
         } finally {
             setLoadingPeriodData(false);
         }
-    }, [getAccessToken, fromDate, toDate]);
+    }, [getAccessToken, fromDateISO, toDateISO]);
 
     /** 👀 makes sure the period reloads when needed */
     useEffect(() => {
@@ -386,6 +390,7 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         settings,
         expectedByDay,
         period,
+        periodDaysWithEntries,
         entriesByDate,
         draftEntriesByDate,
         isClosed,

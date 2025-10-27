@@ -1,6 +1,6 @@
 // src/AdminReports.tsx
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "./supabase";
+import { supabase } from "../../supabase";
 
 type ByDatesRow = {
     employeeId: number;
@@ -27,7 +27,7 @@ type MissingPeriodsRow = {
 type EmployeeMini = { id: number; name: string; surname: string };
 type ReportKind = "by-dates" | "missing-periods";
 
-export default function AdminReports() {
+export function AdminReports() {
     /* ---------------- UI state ---------------- */
     const [tab, setTab] = useState<ReportKind>("by-dates");
 

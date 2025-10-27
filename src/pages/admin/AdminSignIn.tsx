@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { useAuth } from "./hooks/useAuth";
+import { useAuth } from "../../hooks/useAuth";
 
-export default function AdminSignIn() {
+export function AdminSignIn() {
     const { signInWithPassword } = useAuth();
     const [email, setEmail] = useState("");
     const [pwd, setPwd] = useState("");

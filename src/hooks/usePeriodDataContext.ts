@@ -27,6 +27,7 @@ export type PeriodDataContextType = {
     expectedByDay: readonly number[];
     /** 👀 period data */
     period: Period | null;
+    periodDaysWithEntries: number;
     /** 👀 entries perm and draft */
     entriesByDate: EntriesByDate;
     draftEntriesByDate: EntriesByDate;

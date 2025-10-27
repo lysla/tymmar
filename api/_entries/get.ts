@@ -84,7 +84,7 @@ export const getEntries = async function (req: VercelRequest, res: VercelRespons
         }
     }
 
-    const totalDaysWithEntries = entriesByDate.length;
+    const totalDaysWithEntries = Object.keys(entriesByDate).length;
 
     return res.status(200).json({
         period: p as Period,

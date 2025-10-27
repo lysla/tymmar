@@ -1,13 +1,11 @@
 // src/components/WeekGrid.tsx
-import { startOfDay, parseISO, isBefore, isAfter, isSameDay } from "date-fns";
+import { isBefore, isAfter, isSameDay } from "date-fns";
 import { fmtDayLabel, toISO } from "../helpers";
-import { useWeekDataContext } from "../context/PeriodDataContext";
+import { usePeriodDataContext } from "../hooks";
+import { DAY_TYPE_COLORS, type DayType } from "../types";
 
 export default function WeekGrid() {
-    const { days, expectedByDay, draftEntriesByDate, addEntry, updateEntry, removeEntry, isClosed, loadingWeek, startDateISO, endDateISO } = useWeekDataContext();
-
-    const startBound = startDateISO ? startOfDay(parseISO(startDateISO)) : null;
-    const endBound = endDateISO ? startOfDay(parseISO(endDateISO)) : null;
+    const { days, expectedByDay, draftEntriesByDate, addEntry, updateEntry, removeEntry, isClosed, loading, employeeEndDateISO, employeeStartDateISO } = usePeriodDataContext();
 
     return (
         <div className="weekgrid">
@@ -16,20 +14,20 @@ export default function WeekGrid() {
                     const expected = expectedByDay[i] ?? 0;
                     const iso = toISO(d);
 
-                    const inStart = !startBound || !isBefore(d, startBound);
-                    const inEnd = !endBound || !isAfter(d, endBound);
+                    /** 👀 check if day is within employment */
+                    const inStart = !employeeEndDateISO || !isBefore(d, employeeEndDateISO);
+                    const inEnd = !employeeStartDateISO || !isAfter(d, employeeStartDateISO);
                     const withinEmployment = inStart && inEnd;
 
-                    const disabled = isClosed || loadingWeek || !withinEmployment;
-                    const disabledHint = !withinEmployment ? "Outside your employment dates" : undefined;
+                    const disabled = isClosed || loading || !withinEmployment;
 
                     const rows = draftEntriesByDate[iso] ?? [];
 
-                    const totalEntered = rows.reduce((s, r) => s + Number(r.hours || 0), 0);
-                    const pct = expected > 0 ? Math.round((totalEntered / expected) * 100) : 0;
-                    const exceededHours = totalEntered - expected;
+                    const totalHours = rows.reduce((s, r) => s + Number(r.hours || 0), 0);
+                    const pct = expected > 0 ? Math.round((totalHours / expected) * 100) : 0;
+                    const exceededHours = totalHours - expected;
 
-                    // Build stacked segments by type
+                    /** 👀 group totals by type of entry for different color segments */
                     const byTypeTotals: Record<string, number> = rows.reduce((acc, r) => {
                         const t = r.type || "work";
                         const h = Number(r.hours || 0);
@@ -43,17 +41,11 @@ export default function WeekGrid() {
                         widthPct: expected > 0 ? (hours / expected) * 100 : 0,
                     }));
 
-                    const TYPE_COLORS: Record<string, string> = {
-                        work: "bg-primary",
-                        sick: "bg-secondary",
-                        time_off: "bg-tertiary",
-                    };
-
                     const isToday = isSameDay(d, new Date());
 
                     return (
-                        <div key={iso} className={disabled ? "opacity-40 pointer-events-none" : ""} title={disabledHint}>
-                            <p className={`font-serif leading-[1] ${isToday ? "text-secondary" : ""}`}>
+                        <div key={iso} className={disabled ? "opacity-40 pointer-events-none" : ""}>
+                            <p className={`font-serif leading-none ${isToday ? "text-secondary" : ""}`}>
                                 {fmtDayLabel(d)}
                                 {exceededHours > 0 && (
                                     <span className="ml-4 text-dark text-xs inline-flex items-center px-1 gap-x-1 bg-tertiary font-sans">
@@ -66,18 +58,17 @@ export default function WeekGrid() {
                             <div className="flex items-end mt-4">
                                 <span className="progress [ mr-2 ]" title={`${pct}%`}>
                                     {segments.map((seg, idx) => (
-                                        <span key={`${seg.type}-${idx}`} className={`progress__bar ${TYPE_COLORS[seg.type] || ""}`} style={{ width: `${seg.widthPct}%` }} />
+                                        <span key={`${seg.type}-${idx}`} className={`progress__bar bg-${DAY_TYPE_COLORS[seg.type as DayType]}`} style={{ width: `${seg.widthPct}%` }} />
                                     ))}
                                 </span>
-                                <p className="text-xs leading-[1] text-primary">{pct}%</p>
+                                <p className="text-xs leading-none text-primary">{pct}%</p>
                             </div>
 
                             <p className="text-xs mt-2">Expected: {expected}</p>
 
-                            {/* rows */}
                             <div className="flex flex-col mt-2">
                                 {rows.map((r, idx) => (
-                                    <div key={idx} className={`p-3 [ mt-4 ] relative ${TYPE_COLORS[r.type ?? "work"]}`}>
+                                    <div key={idx} className={`p-3 [ mt-4 ] relative bg-${DAY_TYPE_COLORS[r.type ?? "work"]}`}>
                                         <div className="flex flex-col">
                                             <input
                                                 type="number"
@@ -98,7 +89,7 @@ export default function WeekGrid() {
                                                 <option value="sick">Sick</option>
                                                 <option value="time_off">Time off</option>
                                             </select>
-                                            {/* Project placeholder (disabled for now) */}
+                                            {/** 👀 project placeholder (disabled for now) */}
                                             {r.type == "work" && (
                                                 <select className="input input--alt text-xs w-40 opacity-60" disabled>
                                                     <option>— Project (soon) —</option>
@@ -110,7 +101,7 @@ export default function WeekGrid() {
                                             </button>
                                         </div>
 
-                                        {/* Optional notes later */}
+                                        {/** 👀 optional notes later */}
                                         {/* <input className="input input--alt mt-2" placeholder="Note (optional)" /> */}
                                     </div>
                                 ))}

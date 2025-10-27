@@ -1,7 +1,7 @@
 import { Link, useLocation, matchPath } from "react-router";
-import { supabase } from "./supabase";
+import { supabase } from "../../supabase";
 
-export default function AdminSidebar() {
+export function AdminSidebar() {
     const loc = useLocation();
 
     async function handleSignOut() {

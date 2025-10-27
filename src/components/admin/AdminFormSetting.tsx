@@ -1,11 +1,11 @@
 // src/AdminFormSetting.tsx
 
 import { useState } from "react";
-import type { Setting } from "./types";
+import type { Setting } from "../../types";
 
 export type FormSettingValues = Partial<Setting>;
 
-export default function AdminFormSetting({
+export function AdminFormSetting({
     initial,
     mode, // "create" | "edit"
     onSubmit,

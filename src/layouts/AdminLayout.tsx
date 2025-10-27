@@ -1,7 +1,7 @@
 import { Outlet } from "react-router";
-import AdminSidebar from "./AdminSidebar";
+import { AdminSidebar } from "../components/admin";
 
-export default function AdminLayout() {
+export function AdminLayout() {
     return (
         <div className="w-full min-h-full bg-paper flex">
             <AdminSidebar />

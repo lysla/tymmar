@@ -1,13 +1,14 @@
-// src/components/AIComposer.tsx
-import { useWeekDataContext } from "../context/PeriodDataContext";
+// src/components/AIInput.tsx
+import { usePeriodDataContext } from "../hooks";
 
-export default function AIComposer() {
-    const { aiCmd, setAiCmd, aiBusy, aiMsg, handleAIApply, isClosed, loadingWeek } = useWeekDataContext();
+export default function AIInput() {
+    const { aiCmd, setAiCmd, aiBusy, aiMsg, handleAIApply, isClosed, loading } = usePeriodDataContext();
 
-    const closed = isClosed || loadingWeek;
+    /** 👀 let the component be interacted with only when possible */
+    const disabled = isClosed || loading;
 
     return (
-        <div className={closed ? "opacity-40" : ""}>
+        <div className={disabled ? "opacity-40 pointer-events-none" : ""}>
             <p className="text-sm mb-4">
                 <img src="/images/sparkes.svg" alt="" className="inline-block mr-2 h-5" />
                 Feeling lazy? Just ask tymmar to fill your hours!
