@@ -7,7 +7,8 @@ remind: all the schemas need to be exported so drizzle-kit can use them
 */
 
 import { sql } from "drizzle-orm";
-import { pgTable, serial, text, integer, date, uuid, index, unique, numeric, pgEnum, timestamp, boolean, uniqueIndex, primaryKey, pgView } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, integer, date, uuid, index, unique, numeric, pgEnum, timestamp, boolean, uniqueIndex, primaryKey, pgView } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { DAY_TYPES } from "../src/types";
 
 export const settings = pgTable(
@@ -179,3 +180,42 @@ export const employeeProjects = pgTable(
     },
     (t) => [primaryKey({ columns: [t.employeeId, t.projectId], name: "employee_projects_pk" }), index("employee_projects_proj_emp_idx").on(t.projectId, t.employeeId)]
 ).enableRLS();
+
+export const tasks = pgTable("tasks", {
+    id: serial("id").primaryKey(),
+
+    // 🔗 Relazioni base
+    project_id: integer("project_id")
+        .notNull()
+        .references(() => projects.id, { onDelete: "cascade" }),
+    milestone_id: integer("milestone_id"), // opzionale, se aggiungerai le milestones
+
+    // 📋 Dati base
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description"),
+
+    // 🧭 Stato e priorità
+    status: varchar("status", { length: 50 }).default("todo").notNull(), // todo | in_progress | blocked | done
+    priority: varchar("priority", { length: 50 }).default("medium").notNull(), // low | medium | high | urgent
+
+    // 👤 Assegnatario
+    assignee_id: varchar("assignee_id", { length: 255 }), // può essere uuid da tabella employees o users
+
+    // 📅 Scadenza e ordinamento
+    due_date: timestamp("due_date", { withTimezone: true }),
+    order_index: integer("order_index").default(0).notNull(),
+
+    // 🔄 Flag e metadati
+    is_archived: boolean("is_archived").default(false).notNull(),
+
+    // ⏱️ Timestamps
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+    project: one(projects, {
+        fields: [tasks.project_id],
+        references: [projects.id],
+    }),
+}));
