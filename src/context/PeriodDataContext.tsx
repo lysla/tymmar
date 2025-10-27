@@ -1,48 +1,12 @@
 // src/context/PeriodDataContext.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { PeriodDataContext, type EntriesByDate, type PeriodDataContextType } from "../hooks/usePeriodDataContext";
-import { addDays, getMonday, toISO, weekRangeISO, clampMondayISO, isDateAllowed } from "../helpers";
+import { getMonday, toISO, isDateAllowed } from "../helpers";
 import { parseISO, startOfDay, isBefore, isAfter, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
-import type { DayEntry, Employee, Period, Setting } from "../types";
+import type { DayEntry, DayType, Employee, Period, Setting } from "../types";
 import { useAuth } from "../hooks";
 
-/* 
-async function replaceDayEntries(entriesByDate: EntriesByDate, token?: string) {
-    const r = await fetch(`/api/day_entries`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ mode: "replace-day-entries", entriesByDate }),
-    });
-    const json = await r.json();
-    if (!r.ok) throw new Error(json?.error || "Save failed");
-    return json as { ok: true; dates: number };
-}
-
-async function patchPeriod(action: "close" | "reopen", weekStart: string, token?: string) {
-    const r = await fetch("/api/periods", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ action, weekStart }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data?.error || "Action failed");
-    return data;
-}
-
-async function fetchWeekSummaries(fromISO: string, toISO: string, token?: string, opts?: { signal?: AbortSignal }) {
-    const r = await fetch(`/api/week_summaries?from=${fromISO}&to=${toISO}`, {
-        method: "GET",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        signal: opts?.signal,
-    });
-    if (!r.ok) throw new Error("Failed to load week summaries");
-    return r.json() as Promise<{ summaries: any[]; range: { from: string; to: string } }>;
-}*/
-
-/** 👀 helpers that tells us if the draft entries are != then perms => isDirty */
+/** 👀 helper that tells us if the draft entries are != then perms => isDirty */
 function equalEntriesForDates(a: EntriesByDate, b: EntriesByDate, dates: string[]) {
     for (const d of dates) {
         const aa = a[d] ?? [];
@@ -65,8 +29,9 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
     /** 👀 loading and errors */
     const [loadingSettings, setLoadingSettings] = useState(false);
     const [loadingPeriodData, setLoadingPeriodData] = useState(false);
+    const [loadingMonthPeriods, setLoadingMonthPeriods] = useState(false);
 
-    const loading = useMemo(() => loadingSettings && loadingPeriodData, [loadingSettings, loadingPeriodData]);
+    const loading = useMemo(() => loadingSettings || loadingPeriodData || loadingMonthPeriods, [loadingSettings, loadingPeriodData, loadingMonthPeriods]);
     const [error, setError] = useState<string | null>(null);
 
     /** 👀 period start date */
@@ -76,9 +41,6 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
     const toDate = useMemo(() => endOfWeek(fromDate, { weekStartsOn: 1 }), [fromDate]);
     const fromDateISO = useMemo(() => toISO(fromDate), [fromDate]);
     const toDateISO = useMemo(() => toISO(toDate), [toDate]);
-
-    /** 👀 period key */
-    const [currentKey, setCurrentKey] = useState<string>(`${fromDateISO}|${toDateISO}`);
 
     /** 👀 days in the period */
     const { days, daysISO } = useMemo(() => {
@@ -93,8 +55,6 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
     const [visibleMonth, setVisibleMonth] = useState<Date>(() => startOfMonth(fromDate));
     const jumpToPeriod = useCallback((fromDateISO: string) => {
         const f = parseISO(fromDateISO);
-        const t = endOfWeek(f, { weekStartsOn: 1 });
-        setCurrentKey(`${f}|${t}`);
         setFromDate(f);
         setVisibleMonth(startOfMonth(f));
     }, []);
@@ -180,15 +140,15 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         })();
     }, [getAccessToken]);
 
-    /** 👀 load all the period data info */
+    /** 👀 load all the period data entries and info */
     const loadPeriod = useCallback(async () => {
         setLoadingPeriodData(true);
         try {
             const token = await getAccessToken();
-            const r = await fetch(`/api/day_entries?from=${from}&to=${to}`, {
+            const r = await fetch(`/api/day_entries?from=${fromDateISO}&to=${toDateISO}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
-            if (!r.ok) throw new Error("Failed to load week");
+            if (!r.ok) throw new Error("Failed to load period entries and info");
             const json = (await r.json()) as {
                 period: Period;
                 entriesByDate: EntriesByDate;
@@ -206,99 +166,64 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         } finally {
             setLoadingPeriodData(false);
         }
-    }, [boundsReady, getAccessToken, from, to, currentKey]);
+    }, [getAccessToken, fromDate, toDate]);
 
+    /** 👀 makes sure the period reloads when needed */
     useEffect(() => {
-        if (!boundsReady) return;
-        const curISO = toISO(weekStart);
-        const clampedISO = clampMondayISO(curISO, startBound, endBound);
-        if (clampedISO !== curISO) {
-            setLoadedKey(null);
-            setFromDate(parseISO(clampedISO));
-            return;
-        }
-        if (loadedKey !== currentKey) setLoadedKey(null);
-        void reloadWeek();
-    }, [boundsReady, weekStart, startBound, endBound, currentKey, loadedKey, reloadWeek]);
+        loadPeriod();
+    }, [loadPeriod]);
 
-    // summaries for calendar badges
-    useEffect(() => {
-        setVisibleMonth((m) => m ?? startOfMonth(weekStart));
-    }, [weekStart]);
+    /** 👀 prepare an allowed interval based on the employee data */
+    const allowedEmployeeInterval = useMemo(() => {
+        return { start: employee.startDate ?? new Date(-8640000000000000), end: employee.endDate ?? new Date(8640000000000000) };
+    }, [employee]);
 
-    const allowedInterval = useMemo(() => {
-        const s = startBound ? parseISO(startBound) : null;
-        const e = endBound ? parseISO(endBound) : null;
-        return s || e ? { start: s ?? new Date(-8640000000000000), end: e ?? new Date(8640000000000000) } : null;
-    }, [startBound, endBound]);
-
+    /** 👀 get the exact month span we need the data for */
     const monthSpan = useMemo(() => {
         const monthStart = startOfMonth(visibleMonth);
         const monthEnd = endOfMonth(visibleMonth);
         const spanFrom = startOfWeek(monthStart, { weekStartsOn: 1 });
         const spanTo = endOfWeek(monthEnd, { weekStartsOn: 1 });
-        const clampFrom = allowedInterval ? (spanFrom < allowedInterval.start ? allowedInterval.start : spanFrom) : spanFrom;
-        const clampTo = allowedInterval ? (spanTo > allowedInterval.end ? allowedInterval.end : spanTo) : spanTo;
-        return { clampFrom, clampTo };
-    }, [visibleMonth, allowedInterval]);
+        const clampFrom = spanFrom < allowedEmployeeInterval.start ? allowedEmployeeInterval.start : spanFrom;
+        const clampTo = spanTo > allowedEmployeeInterval.end ? allowedEmployeeInterval.end : spanTo;
+        return { clampFrom: toISO(clampFrom), clampTo: toISO(clampTo) };
+    }, [visibleMonth, allowedEmployeeInterval]);
 
-    const fromISO_M = useMemo(() => toISO(monthSpan.clampFrom), [monthSpan.clampFrom]);
-    const toISO_M = useMemo(() => toISO(monthSpan.clampTo), [monthSpan.clampTo]);
-    const summariesKey = `${fromISO_M}|${toISO_M}`;
-
-    const fetchedSummariesRef = useRef<Set<string>>(new Set());
-    const [loadedSummariesKey, setLoadedSummariesKey] = useState<string | null>(null);
-    const [fetchingSummaries, setFetchingSummaries] = useState(false);
-    const [summaries, setSummaries] = useState<Record<string, any>>({});
-
-    const reloadSummaries = useCallback(async () => {
-        if (!boundsReady) return;
-        if (monthSpan.clampFrom > monthSpan.clampTo) {
-            setSummaries({});
-            setLoadedSummariesKey(summariesKey);
-            return;
-        }
-        if (fetchedSummariesRef.current.has(summariesKey)) {
-            setLoadedSummariesKey(summariesKey);
-            return;
-        }
-        setFetchingSummaries(true);
+    /** 👀 get the full visible month periods summaried data */
+    const [monthPeriods, setMonthPeriods] = useState<Record<string, Period>>({});
+    const loadMonthPeriods = useCallback(async () => {
+        setLoadingMonthPeriods(true);
         try {
             const token = await getAccessToken();
-            const { summaries } = await fetchWeekSummaries(fromISO_M, toISO_M, token);
+            const r = await fetch(`/api/periods?from=${monthSpan.clampFrom}&to=${monthSpan.clampTo}`, {
+                method: "GET",
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!r.ok) throw new Error("Failed to load month periods");
+            const { periods } = (await r.json()) as { periods: Period[]; range: { from: string; to: string } };
             const map: Record<string, any> = {};
-            for (const s of summaries) map[s.monday] = s;
-            setSummaries(map);
-            fetchedSummariesRef.current.add(summariesKey);
-            setLoadedSummariesKey(summariesKey);
+            for (const p of periods) {
+                map[p.weekStartDate as string] = p;
+            }
+            setMonthPeriods(map);
         } catch {
-            setSummaries({});
+            setMonthPeriods({});
         } finally {
-            setFetchingSummaries(false);
+            setLoadingMonthPeriods(false);
         }
-    }, [boundsReady, monthSpan.clampFrom, monthSpan.clampTo, summariesKey, fromISO_M, toISO_M, getAccessToken]);
+    }, [monthSpan.clampFrom, monthSpan.clampTo, getAccessToken]);
 
-    useEffect(() => {
-        if (!boundsReady) return;
-        if (loadedSummariesKey !== summariesKey) setLoadedSummariesKey(null);
-        void reloadSummaries();
-    }, [boundsReady, summariesKey, loadedSummariesKey, reloadSummaries]);
-
-    const invalidateSummaries = useCallback(() => {
-        fetchedSummariesRef.current.delete(summariesKey);
-        setLoadedSummariesKey(null);
-    }, [summariesKey]);
-
-    // actions
+    /** 👀 actions of the whole period */
     const [saving, setSaving] = useState(false);
     const [closing, setClosing] = useState(false);
 
-    const handleSaveWeek = useCallback(async () => {
+    /** 👀 period saving */
+    const savePeriod = useCallback(async () => {
         try {
             setSaving(true);
             const token = await getAccessToken();
             const payload: EntriesByDate = {};
-            for (const iso of weekDatesISO) {
+            for (const iso of daysISO) {
                 payload[iso] = (draftEntriesByDate[iso] ?? []).map((r) => ({
                     type: r.type,
                     hours: Number(r.hours || 0),
@@ -306,35 +231,44 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
                     note: r.note ?? null,
                 }));
             }
-            setEntriesByDate(() => payload); // optimistic
-            await replaceDayEntries(payload, token);
+            const r = await fetch(`/api/day_entries`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ payload }),
+            });
+            const json = await r.json();
+            if (!r.ok) throw new Error(json?.error || "Save failed");
+            setEntriesByDate(() => payload);
             setDraftEntriesByDate(payload);
-            invalidateSummaries();
-            await reloadSummaries();
-            setWeekErr(null);
-            fetchedKeysRef.current.add(currentKey);
-            setLoadedKey(currentKey);
+            await loadMonthPeriods();
         } finally {
             setSaving(false);
         }
-    }, [getAccessToken, draftEntriesByDate, weekDatesISO, invalidateSummaries, reloadSummaries, currentKey]);
+    }, [getAccessToken, draftEntriesByDate, loadMonthPeriods, daysISO]);
 
-    const handleCloseOrReopen = useCallback(async () => {
+    /** 👀 period closing / reopening */
+    const closeOrReopenPeriod = useCallback(async () => {
         try {
             setClosing(true);
             const token = await getAccessToken();
-            await patchPeriod(isClosed ? "reopen" : "close", weekStartISO, token);
+            const r = await fetch("/api/periods", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: JSON.stringify({ action: isClosed ? "reopen" : "close", fromDateISO }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data?.error || "Action failed");
             setPeriod((p) => (p ? { ...p, closed: !isClosed } : p));
-            invalidateSummaries();
-            await reloadSummaries();
-            fetchedKeysRef.current.add(currentKey);
-            setLoadedKey(currentKey);
+            await loadMonthPeriods();
         } finally {
             setClosing(false);
         }
-    }, [getAccessToken, isClosed, weekStartISO, invalidateSummaries, reloadSummaries, currentKey]);
+    }, [getAccessToken, isClosed, fromDateISO, loadMonthPeriods]);
 
-    // AI
+    /** 👀 interactions */
     const [aiCmd, setAiCmd] = useState("");
     const [aiBusy, setAiBusy] = useState(false);
     const [aiMsg, setAiMsg] = useState<string | null>(null);
@@ -345,17 +279,11 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
             setAiMsg(null);
             const token = await getAccessToken();
 
-            const weekSet = new Set(weekDatesISO);
-            const inEmployment = (iso: string) => {
-                const d = startOfDay(parseISO(iso));
-                if (startBound && isBefore(d, startBound)) return false;
-                if (endBound && isAfter(d, endBound)) return false;
-                return true;
-            };
-
+            /** 👀 prep week day names to identify each of the current entry */
             const weekdayNames = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
-            const currentEntries = weekDatesISO.map((iso, i) => {
+            /** 👀 normalize current entries */
+            const currentEntries = daysISO.map((iso, i) => {
                 const expectedHoursForDay = Number(expectedByDay[i] ?? 0);
                 return {
                     date: iso,
@@ -370,6 +298,7 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
                 };
             });
 
+            /** 👀 AI call */
             const r = await fetch("/api/ai", {
                 method: "POST",
                 headers: {
@@ -385,7 +314,14 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
             const { suggestions, error } = await r.json();
             if (!r.ok) throw new Error(error || "AI failed");
 
-            type DayType = "work" | "sick" | "time_off";
+            /** 👀 check returned data and normalize if needed */
+            const daysSet = new Set(daysISO);
+            const inEmployment = (iso: string) => {
+                const d = startOfDay(parseISO(iso));
+                if (employee.startDate && isBefore(d, employee.startDate)) return false;
+                if (employee.endDate && isAfter(d, employee.endDate)) return false;
+                return true;
+            };
             const normalized: { date: string; entries: { hours: number; type: DayType }[] }[] = (suggestions ?? [])
                 .map((s: any) => {
                     const date = String(s.date).trim();
@@ -404,19 +340,19 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
                         return { date, entries };
                     }
                 })
-                .filter((row: any) => weekSet.has(row.date) && inEmployment(row.date) && row.entries.length > 0);
-
+                .filter((row: any) => daysSet.has(row.date) && inEmployment(row.date) && row.entries.length > 0);
             if (suggestions.length > 0 && normalized.length === 0) {
                 setAiMsg("AI returned no applicable changes for this week.");
                 return;
             }
 
+            /** 👀 apply normalized suggestions */
             setDraftEntriesByDate((cur) => {
                 const map = new Map<string, { hours: number; type: DayType }[]>();
                 for (const row of normalized) map.set(row.date, row.entries);
 
                 const next = { ...cur };
-                for (const iso of weekDatesISO) {
+                for (const iso of daysISO) {
                     const entries = map.get(iso) ?? [];
                     next[iso] = entries.map((e) => ({
                         type: e.type,
@@ -434,24 +370,19 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         } finally {
             setAiBusy(false);
         }
-    }, [aiCmd, getAccessToken, expectedByDay, weekDatesISO, startBound, endBound, draftEntriesByDate]);
+    }, [aiCmd, getAccessToken, expectedByDay, draftEntriesByDate, daysISO, employee]);
 
     const value: PeriodDataContextType = {
-        // week navigation & range
-        fromISO: weekStartISO,
-        from,
-        to,
+        loading,
+        error,
+        fromDate,
+        fromDateISO,
+        toDate,
+        toDateISO,
         days,
-        weekDatesISO,
-        jumpToPeriod,
-        prevWeek,
-        nextWeek,
-
-        // bounds
-        startDateISO: startBound,
-        endDateISO: endBound,
-
-        // settings/data/derived
+        daysISO,
+        employeeStartDateISO: employee.startDate,
+        employeeEndDateISO: employee.endDate,
         settings,
         expectedByDay,
         period,
@@ -462,37 +393,22 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         weekTotal,
         weekExpected,
         weekPct,
-
-        // loading/error
-        loadingWeek,
-        weekErr,
-        loadingSettings: !settingsLoaded,
-
-        // row edit helpers
+        visibleMonth,
+        setVisibleMonth,
+        monthPeriods,
         addEntry,
         updateEntry,
         removeEntry,
-        setVal,
-
-        // actions
-        handleSaveWeek,
-        handleCloseOrReopen,
+        savePeriod,
+        closeOrReopenPeriod,
         saving,
         closing,
-
-        // AI
+        jumpToPeriod,
         aiCmd,
         setAiCmd,
         aiBusy,
         aiMsg,
         handleAIApply,
-
-        // Navigator month + summaries
-        visibleMonth,
-        setVisibleMonth,
-        summaries,
-        fetchingSummaries,
-        reloadSummaries,
     };
 
     return <PeriodDataContext.Provider value={value}>{children}</PeriodDataContext.Provider>;

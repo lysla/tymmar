@@ -19,12 +19,12 @@ export type PeriodDataContextType = {
     days: Date[];
     daysISO: string[];
     /** 👀 employee start/end bounds */
-    employeeStartDateISO: string | null | undefined;
-    employeeEndDateISO: string | null | undefined;
+    employeeStartDateISO: string | Date | null;
+    employeeEndDateISO: string | Date | null;
     /** 👀 settings for this period */
     settings: Setting | null;
-    /** 👀 expected hours by date [[date=>hours]] */
-    expectedByDate: Record<string, number>;
+    /** 👀 expected hours by day of the period [[date=>hours]] */
+    expectedByDay: readonly number[];
     /** 👀 period data */
     period: Period | null;
     /** 👀 entries perm and draft */
@@ -41,14 +41,13 @@ export type PeriodDataContextType = {
     setVisibleMonth: React.Dispatch<React.SetStateAction<Date>>;
     /** 👀 all periods within the current calendar month */
     monthPeriods: Record<string, Period>;
-    reloadMonthPeriods: () => Promise<void>;
     /** 👀 entry ui management functions */
     addEntry: (date: Date) => void;
     updateEntry: (date: Date, index: number, patch: Partial<DayEntry>) => void;
     removeEntry: (date: Date, index: number) => void;
     /** 👀 entries and period management functions */
-    handleSaveWeek: () => Promise<void>;
-    handleCloseOrReopen: () => Promise<void>;
+    savePeriod: () => Promise<void>;
+    closeOrReopenPeriod: () => Promise<void>;
     saving: boolean;
     closing: boolean;
     /** 👀 move to specific period */
