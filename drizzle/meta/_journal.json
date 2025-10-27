@@ -134,6 +134,13 @@
       "when": 1761294426201,
       "tag": "0018_magical_moonstone",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1761573277799,
+      "tag": "0019_melted_wild_child",
+      "breakpoints": true
     }
   ]
 }
