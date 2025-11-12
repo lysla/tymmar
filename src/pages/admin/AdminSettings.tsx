@@ -68,9 +68,10 @@ export function AdminSettings() {
             const { data } = await supabase.auth.getSession();
             const token = data.session?.access_token;
 
+            if (!token) throw new Error("Missing auth token, please sign in again.");
             const r = await fetch("/api/settings", {
                 method: "DELETE",
-                headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ ids }),
             });
             const json = await r.json();
@@ -139,7 +140,7 @@ export function AdminSettings() {
                                         <input type="checkbox" id={cbId} checked={checked} onChange={toggleOne(e.id)} />
                                         <label htmlFor={cbId}></label>
                                     </div>
-                                    <div className="flex items-center">{`${e.mon_hours},${e.tue_hours},${e.wed_hours},${e.thu_hours},${e.fri_hours},${e.sat_hours},${e.sun_hours}`}</div>
+                                    <div className="flex items-center">{`${e.monHours},${e.tueHours},${e.wedHours},${e.thuHours},${e.friHours},${e.satHours},${e.sunHours}`}</div>
                                     <div className="text-gray text-xs flex items-center">{e.isDefault ? "Yes" : "No"}</div>
                                     <div className="text-right">
                                         <Link className="link" to={`/admin/setting/${e.id}/edit`}>

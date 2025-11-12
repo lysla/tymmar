@@ -1,7 +1,7 @@
 // src/AdminAddSetting.tsx
 import { Link, useNavigate } from "react-router";
 import { supabase } from "../../supabase";
-import AdminFormSetting, { type FormSettingValues } from "../../components/admin/AdminFormSetting";
+import { AdminFormSetting, type FormSettingValues } from "../../components/admin";
 
 export function AdminAddSetting() {
     const nav = useNavigate();
@@ -9,6 +9,7 @@ export function AdminAddSetting() {
     async function handleCreate(values: FormSettingValues) {
         const sb = await supabase.auth.getSession();
         const token = sb.data.session?.access_token;
+        if (!token) throw new Error("Missing auth token, please sign in again.");
 
         const r = await fetch("/api/settings", {
             method: "POST",
@@ -32,7 +33,11 @@ export function AdminAddSetting() {
             </div>
 
             <div className="bg-white p-8 mt-8">
-                <AdminFormSetting mode="create" initial={{ mon_hours: 8, tue_hours: 8, wed_hours: 8, thu_hours: 8, fri_hours: 8, sat_hours: 0, sun_hours: 0, isDefault: false }} onSubmit={handleCreate} />
+                <AdminFormSetting
+                    mode="create"
+                    initial={{ monHours: 8, tueHours: 8, wedHours: 8, thuHours: 8, friHours: 8, satHours: 0, sunHours: 0, isDefault: false }}
+                    onSubmit={handleCreate}
+                />
             </div>
         </>
     );

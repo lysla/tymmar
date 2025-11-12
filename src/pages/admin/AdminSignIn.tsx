@@ -14,7 +14,7 @@ export function AdminSignIn() {
         e.preventDefault();
         const { error, user } = await signInWithPassword(email, pwd);
         if (error) return setMsg(error);
-        const isAdmin = Boolean((user?.app_metadata as any)?.is_admin);
+        const isAdmin = user?.app_metadata?.is_admin === true;
         if (!isAdmin) return setMsg("Forbidden: admin only");
         nav(loc.state?.from?.pathname ?? "/admin", { replace: true });
     }

@@ -68,9 +68,10 @@ export function AdminDashboard() {
             const { data } = await supabase.auth.getSession();
             const token = data.session?.access_token;
 
+            if (!token) throw new Error("Missing auth token, please sign in again.");
             const r = await fetch("/api/employees", {
                 method: "DELETE",
-                headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ ids }),
             });
             const json = await r.json();

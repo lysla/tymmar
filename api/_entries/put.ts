@@ -54,7 +54,7 @@ async function getExpectedHoursForDate(empId: number, empSettingsId: number | nu
 
 export const putEntries = async function (req: VercelRequest, res: VercelResponse, empId: number, empSettingsId: number | null) {
     /** 👀 retrieve the passed entries [[date=>[entry]]] */
-    const entriesByDate: Record<string, Partial<DayEntry>[]> = req.body.entries;
+    const entriesByDate: Record<string, Partial<DayEntry>[]> = req.body.entries ?? req.body.payload;
     if (!entriesByDate || Object.keys(entriesByDate).length === 0) {
         return res.status(400).json({ error: "entries are required in format [[date=>[entry]]]" });
     }

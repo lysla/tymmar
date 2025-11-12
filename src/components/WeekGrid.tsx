@@ -1,11 +1,13 @@
 // src/components/WeekGrid.tsx
-import { isBefore, isAfter, isSameDay } from "date-fns";
+import { isBefore, isAfter, isSameDay, startOfDay, parseISO } from "date-fns";
 import { fmtDayLabel, toISO } from "../helpers";
 import { usePeriodDataContext } from "../hooks";
 import { DAY_TYPE_COLORS, type DayType } from "../types";
 
 export default function WeekGrid() {
     const { days, expectedByDay, draftEntriesByDate, addEntry, updateEntry, removeEntry, isClosed, loading, employeeEndDateISO, employeeStartDateISO } = usePeriodDataContext();
+    const employmentStart = employeeStartDateISO ? startOfDay(typeof employeeStartDateISO === "string" ? parseISO(employeeStartDateISO) : employeeStartDateISO) : null;
+    const employmentEnd = employeeEndDateISO ? startOfDay(typeof employeeEndDateISO === "string" ? parseISO(employeeEndDateISO) : employeeEndDateISO) : null;
 
     return (
         <div className="weekgrid">
@@ -15,9 +17,8 @@ export default function WeekGrid() {
                     const iso = toISO(d);
 
                     /** 👀 check if day is within employment */
-                    const inStart = !employeeEndDateISO || !isBefore(d, employeeEndDateISO);
-                    const inEnd = !employeeStartDateISO || !isAfter(d, employeeStartDateISO);
-                    const withinEmployment = inStart && inEnd;
+                    const dayStart = startOfDay(d);
+                    const withinEmployment = (!employmentStart || !isBefore(dayStart, employmentStart)) && (!employmentEnd || !isAfter(dayStart, employmentEnd));
 
                     const disabled = isClosed || loading || !withinEmployment;
 

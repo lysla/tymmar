@@ -1,7 +1,7 @@
 // src/AdminAddEmployee.tsx
 import { Link, useNavigate } from "react-router";
 import { supabase } from "../../supabase";
-import AdminFormEmployee, { type FormEmployeeValues } from "../../components/admin/AdminFormEmployee";
+import { AdminFormEmployee, type FormEmployeeValues } from "../../components/admin";
 
 export function AdminAddEmployee() {
     const nav = useNavigate();
@@ -9,6 +9,7 @@ export function AdminAddEmployee() {
     async function handleCreate(values: FormEmployeeValues) {
         const sb = await supabase.auth.getSession();
         const token = sb.data.session?.access_token;
+        if (!token) throw new Error("Missing auth token, please sign in again.");
 
         const r = await fetch("/api/employees", {
             method: "POST",

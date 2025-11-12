@@ -8,7 +8,7 @@ export type AuthContextType = {
     loading: boolean;
     isAdmin: boolean;
     getAccessToken: () => Promise<string | undefined>;
-    signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
+    signInWithPassword: (email: string, password: string) => Promise<{ error?: string; user?: User | null }>;
     signOut: () => Promise<void>;
 };
 

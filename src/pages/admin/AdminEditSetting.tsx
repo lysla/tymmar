@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { supabase } from "../../supabase";
-import AdminFormSetting, { type FormSettingValues } from "../../components/admin/AdminFormSetting";
+import { AdminFormSetting, type FormSettingValues } from "../../components/admin";
 import type { Setting } from "../../types";
 
 export function AdminEditSetting() {
@@ -21,8 +21,12 @@ export function AdminEditSetting() {
                 });
                 if (!active) return;
                 if (!r.ok) return setState("error");
-                const json = await r.json();
-                setInitial(json as Setting);
+                const { setting } = (await r.json()) as { setting?: Setting };
+                if (!setting) {
+                    setState("error");
+                    return;
+                }
+                setInitial(setting);
                 setState("ok");
             } catch {
                 setState("error");
@@ -36,6 +40,7 @@ export function AdminEditSetting() {
     async function handleUpdate(values: FormSettingValues) {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
+        if (!token) throw new Error("Missing auth token, please sign in again.");
         const r = await fetch("/api/settings", {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },

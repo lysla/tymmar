@@ -4,6 +4,7 @@ import { requireUser } from "../_shared/auth";
 import { db } from "../_shared/db";
 import { employees, periods } from "../../db/schema";
 import { Employee, Period, PeriodAction } from "../../src/types";
+import { isoWeekKeyFromMonday } from "../../src/helpers";
 import { and, eq } from "drizzle-orm";
 
 export const patchPeriods = async function (req: VercelRequest, res: VercelResponse) {
@@ -17,11 +18,15 @@ export const patchPeriods = async function (req: VercelRequest, res: VercelRespo
     }
 
     /** 👀 retrieve the passed entry [period=>data,action=>value] */
-    const periodData: Partial<Period> = req.body.period;
+    const periodData: Partial<Period> = req.body.period ?? {};
     const action: PeriodAction = req.body.action;
+    const weekKey = typeof periodData.weekKey === "string" ? periodData.weekKey : periodData.weekStartDate ? isoWeekKeyFromMonday(String(periodData.weekStartDate)) : undefined;
 
     if (action !== "close" && action !== "reopen") {
         return res.status(400).json({ error: "Invalid action. Use 'close' or 'reopen'." });
+    }
+    if (!weekKey) {
+        return res.status(400).json({ error: "Missing period.weekKey" });
     }
 
     await db.transaction(async (tx) => {
@@ -29,11 +34,11 @@ export const patchPeriods = async function (req: VercelRequest, res: VercelRespo
         const [p] = await tx
             .select()
             .from(periods)
-            .where(and(eq(periods.employeeId, emp.id!), eq(periods.weekKey, periodData.weekKey!)))
+            .where(and(eq(periods.employeeId, emp.id!), eq(periods.weekKey, weekKey)))
             .limit(1);
 
         if (!p) {
-            return res.status(404).json({ error: "Period to patch not found." });
+            throw Object.assign(new Error("Period to patch not found."), { status: 404 });
         }
 
         /** 👀 if period exists i update it with the given action */
@@ -46,7 +51,7 @@ export const patchPeriods = async function (req: VercelRequest, res: VercelRespo
                 closedAt: closed ? now : null,
                 updatedAt: now,
             })
-            .where(and(eq(periods.employeeId, emp.id!), eq(periods.weekKey, periodData.weekKey!)));
+            .where(and(eq(periods.employeeId, emp.id!), eq(periods.weekKey, weekKey)));
     });
 
     return res.status(200).json({});

@@ -6,24 +6,18 @@ import { getSettings, postSettings, putSettings, deleteSettings } from "./_setti
 /* ---------------- handler ---------------- */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
-        if (req.method === "GET") {
-            await getSettings(req, res);
+        switch (req.method) {
+            case "GET":
+                return await getSettings(req, res);
+            case "POST":
+                return await postSettings(req, res);
+            case "PUT":
+                return await putSettings(req, res);
+            case "DELETE":
+                return await deleteSettings(req, res);
+            default:
+                return res.status(405).send("Method Not Allowed");
         }
-
-        if (req.method === "POST") {
-            await postSettings(req, res);
-        }
-
-        if (req.method === "PUT") {
-            await putSettings(req, res);
-        }
-
-        if (req.method === "DELETE") {
-            await deleteSettings(req, res);
-        }
-
-        /** 👀 any other method is not allowed */
-        return res.status(405).send("Method Not Allowed");
     } catch (e: any) {
         return res.status(e?.status ?? 500).json({ error: e?.message ?? "Server error" });
     }

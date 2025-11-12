@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { supabase } from "../../supabase";
-import AdminFormEmployee, { type FormEmployeeValues } from "../../components/admin/AdminFormEmployee";
+import { AdminFormEmployee, type FormEmployeeValues } from "../../components/admin";
 import type { Employee } from "../../types";
 
 export function AdminEditEmployee() {
@@ -21,8 +21,12 @@ export function AdminEditEmployee() {
                 });
                 if (!active) return;
                 if (!r.ok) return setState("error");
-                const json = await r.json();
-                setInitial(json as Employee);
+                const { employee } = (await r.json()) as { employee?: Employee };
+                if (!employee) {
+                    setState("error");
+                    return;
+                }
+                setInitial(employee);
                 setState("ok");
             } catch {
                 setState("error");
@@ -36,6 +40,7 @@ export function AdminEditEmployee() {
     async function handleUpdate(values: FormEmployeeValues) {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
+        if (!token) throw new Error("Missing auth token, please sign in again.");
         const r = await fetch("/api/employees", {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },

@@ -1,5 +1,3 @@
-// src/AdminFormSetting.tsx
-
 import { useState } from "react";
 import type { Setting } from "../../types";
 
@@ -18,13 +16,13 @@ export function AdminFormSetting({
 }) {
     const [values, setValues] = useState<FormSettingValues>(initial);
     const [errors, setErrors] = useState<{
-        mon_hours?: string;
-        tue_hours?: string;
-        wed_hours?: string;
-        thu_hours?: string;
-        fri_hours?: string;
-        sat_hours?: string;
-        sun_hours?: string;
+        monHours?: string;
+        tueHours?: string;
+        wedHours?: string;
+        thuHours?: string;
+        friHours?: string;
+        satHours?: string;
+        sunHours?: string;
     }>({});
     const [status, setStatus] = useState<null | string>(null);
     const [loading, setLoading] = useState(false);
@@ -35,13 +33,13 @@ export function AdminFormSetting({
 
     function validate() {
         const e: typeof errors = {};
-        if (values.mon_hours === undefined) e.mon_hours = "Monday hours are required";
-        if (values.tue_hours === undefined) e.tue_hours = "Tuesday hours are required";
-        if (values.wed_hours === undefined) e.wed_hours = "Wednesday hours are required";
-        if (values.thu_hours === undefined) e.thu_hours = "Thursday hours are required";
-        if (values.fri_hours === undefined) e.fri_hours = "Friday hours are required";
-        if (values.sat_hours === undefined) e.sat_hours = "Saturday hours are required";
-        if (values.sun_hours === undefined) e.sun_hours = "Sunday hours are required";
+        if (values.monHours === undefined) e.monHours = "Monday hours are required";
+        if (values.tueHours === undefined) e.tueHours = "Tuesday hours are required";
+        if (values.wedHours === undefined) e.wedHours = "Wednesday hours are required";
+        if (values.thuHours === undefined) e.thuHours = "Thursday hours are required";
+        if (values.friHours === undefined) e.friHours = "Friday hours are required";
+        if (values.satHours === undefined) e.satHours = "Saturday hours are required";
+        if (values.sunHours === undefined) e.sunHours = "Sunday hours are required";
         setErrors(e);
         return Object.keys(e).length === 0;
     }
@@ -55,13 +53,13 @@ export function AdminFormSetting({
         setLoading(true);
         try {
             await onSubmit({
-                mon_hours: values.mon_hours,
-                tue_hours: values.tue_hours,
-                wed_hours: values.wed_hours,
-                thu_hours: values.thu_hours,
-                fri_hours: values.fri_hours,
-                sat_hours: values.sat_hours,
-                sun_hours: values.sun_hours,
+                monHours: values.monHours,
+                tueHours: values.tueHours,
+                wedHours: values.wedHours,
+                thuHours: values.thuHours,
+                friHours: values.friHours,
+                satHours: values.satHours,
+                sunHours: values.sunHours,
                 isDefault: values.isDefault,
             });
             setStatus(mode === "create" ? "Setting created." : "Changes saved.");
@@ -77,77 +75,119 @@ export function AdminFormSetting({
         <form onSubmit={handleSubmit} className="flex flex-col gap-y-4">
             <div className="flex items-center gap-x-4">
                 <div className="checkbox mr-auto">
-                    <input id="cbDefaultHS" type="checkbox" checked={values.isDefault} onChange={(e) => set("isDefault", e.target.checked)} disabled={loading} />
+                    <input id="cbDefaultHS" type="checkbox" checked={Boolean(values.isDefault)} onChange={(e) => set("isDefault", e.target.checked)} disabled={loading} />
                     <label htmlFor="cbDefaultHS">Default hours setting</label>
                 </div>
             </div>
 
             <label className="grid gap-1">
                 <span className="text-sm">Monday hours *</span>
-                <input className="input" type="number" value={values.mon_hours} onChange={(e) => set("mon_hours", Number(e.target.value))} disabled={loading} />
-                {errors.mon_hours && (
+                <input
+                    className="input"
+                    type="number"
+                    value={values.monHours ?? ""}
+                    onChange={(e) => set("monHours", e.target.value === "" ? undefined : Number(e.target.value))}
+                    disabled={loading}
+                />
+                {errors.monHours && (
                     <p className="error">
-                        <span>{errors.mon_hours}</span>
+                        <span>{errors.monHours}</span>
                     </p>
                 )}
             </label>
 
             <label className="grid gap-1">
                 <span className="text-sm">Tuesday hours *</span>
-                <input className="input" type="number" value={values.tue_hours} onChange={(e) => set("tue_hours", Number(e.target.value))} disabled={loading} />
-                {errors.tue_hours && (
+                <input
+                    className="input"
+                    type="number"
+                    value={values.tueHours ?? ""}
+                    onChange={(e) => set("tueHours", e.target.value === "" ? undefined : Number(e.target.value))}
+                    disabled={loading}
+                />
+                {errors.tueHours && (
                     <p className="error">
-                        <span>{errors.tue_hours}</span>
+                        <span>{errors.tueHours}</span>
                     </p>
                 )}
             </label>
 
             <label className="grid gap-1">
                 <span className="text-sm">Wednesday hours *</span>
-                <input className="input" type="number" value={values.wed_hours} onChange={(e) => set("wed_hours", Number(e.target.value))} disabled={loading} />
-                {errors.wed_hours && (
+                <input
+                    className="input"
+                    type="number"
+                    value={values.wedHours ?? ""}
+                    onChange={(e) => set("wedHours", e.target.value === "" ? undefined : Number(e.target.value))}
+                    disabled={loading}
+                />
+                {errors.wedHours && (
                     <p className="error">
-                        <span>{errors.wed_hours}</span>
+                        <span>{errors.wedHours}</span>
                     </p>
                 )}
             </label>
 
             <label className="grid gap-1">
                 <span className="text-sm">Thursday hours *</span>
-                <input className="input" type="number" value={values.thu_hours} onChange={(e) => set("thu_hours", Number(e.target.value))} disabled={loading} />
-                {errors.thu_hours && (
+                <input
+                    className="input"
+                    type="number"
+                    value={values.thuHours ?? ""}
+                    onChange={(e) => set("thuHours", e.target.value === "" ? undefined : Number(e.target.value))}
+                    disabled={loading}
+                />
+                {errors.thuHours && (
                     <p className="error">
-                        <span>{errors.thu_hours}</span>
+                        <span>{errors.thuHours}</span>
                     </p>
                 )}
             </label>
 
             <label className="grid gap-1">
                 <span className="text-sm">Friday hours *</span>
-                <input className="input" type="number" value={values.fri_hours} onChange={(e) => set("fri_hours", Number(e.target.value))} disabled={loading} />
-                {errors.fri_hours && (
+                <input
+                    className="input"
+                    type="number"
+                    value={values.friHours ?? ""}
+                    onChange={(e) => set("friHours", e.target.value === "" ? undefined : Number(e.target.value))}
+                    disabled={loading}
+                />
+                {errors.friHours && (
                     <p className="error">
-                        <span>{errors.fri_hours}</span>
+                        <span>{errors.friHours}</span>
                     </p>
                 )}
             </label>
 
             <label className="grid gap-1">
                 <span className="text-sm">Saturday hours *</span>
-                <input className="input" type="number" value={values.sat_hours} onChange={(e) => set("sat_hours", Number(e.target.value))} disabled={loading} />
-                {errors.sat_hours && (
+                <input
+                    className="input"
+                    type="number"
+                    value={values.satHours ?? ""}
+                    onChange={(e) => set("satHours", e.target.value === "" ? undefined : Number(e.target.value))}
+                    disabled={loading}
+                />
+                {errors.satHours && (
                     <p className="error">
-                        <span>{errors.sat_hours}</span>
+                        <span>{errors.satHours}</span>
                     </p>
                 )}
             </label>
 
             <label className="grid gap-1">
                 <span className="text-sm">Sunday hours *</span>
-                <input className="input" type="number" value={values.sun_hours} onChange={(e) => set("sun_hours", Number(e.target.value))} disabled={loading} />
-                {errors.sun_hours && (
+                <input
+                    className="input"
+                    type="number"
+                    value={values.sunHours ?? ""}
+                    onChange={(e) => set("sunHours", e.target.value === "" ? undefined : Number(e.target.value))}
+                    disabled={loading}
+                />
+                {errors.sunHours && (
                     <p className="error">
-                        <span>{errors.sun_hours}</span>
+                        <span>{errors.sunHours}</span>
                     </p>
                 )}
             </label>

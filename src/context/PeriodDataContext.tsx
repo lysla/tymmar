@@ -1,7 +1,7 @@
 // src/context/PeriodDataContext.tsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { PeriodDataContext, type EntriesByDate, type PeriodDataContextType } from "../hooks/usePeriodDataContext";
-import { getMonday, toISO, isDateAllowed } from "../helpers";
+import { getMonday, toISO, isDateAllowed, isoWeekKeyFromMonday } from "../helpers";
 import { parseISO, startOfDay, isBefore, isAfter, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
 import type { DayEntry, DayType, Employee, Period, Setting } from "../types";
 import { useAuth } from "../hooks";
@@ -88,6 +88,7 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
     const weekExpected = expectedByDay.reduce((a, b) => a + b, 0);
     const weekPct = weekExpected > 0 ? Math.max(0, Math.min(100, Math.round((weekTotal / weekExpected) * 100))) : 0;
     const isClosed = Boolean(period?.closed);
+    const periodWeekKey = period?.weekKey ?? null;
     const isDirty = useMemo(() => !equalEntriesForDates(draftEntriesByDate, entriesByDate, daysISO), [draftEntriesByDate, entriesByDate, daysISO]);
 
     /** 👀 entry ui management functions */
@@ -179,7 +180,11 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
 
     /** 👀 prepare an allowed interval based on the employee data */
     const allowedEmployeeInterval = useMemo(() => {
-        return { start: employee.startDate ?? new Date(-8640000000000000), end: employee.endDate ?? new Date(8640000000000000) };
+        const minDate = new Date(-8640000000000000);
+        const maxDate = new Date(8640000000000000);
+        const start = employee.startDate ? startOfDay(typeof employee.startDate === "string" ? parseISO(employee.startDate) : employee.startDate) : minDate;
+        const end = employee.endDate ? startOfDay(typeof employee.endDate === "string" ? parseISO(employee.endDate) : employee.endDate) : maxDate;
+        return { start, end };
     }, [employee]);
 
     /** 👀 get the exact month span we need the data for */
@@ -205,9 +210,10 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
             });
             if (!r.ok) throw new Error("Failed to load month periods");
             const { periods } = (await r.json()) as { periods: Period[]; range: { from: string; to: string } };
-            const map: Record<string, any> = {};
+            const map: Record<string, Period> = {};
             for (const p of periods) {
-                map[p.weekStartDate as string] = p;
+                const key = typeof p.weekStartDate === "string" ? p.weekStartDate : toISO(p.weekStartDate as Date);
+                map[key] = p;
             }
             setMonthPeriods(map);
         } catch {
@@ -216,6 +222,10 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
             setLoadingMonthPeriods(false);
         }
     }, [monthSpan.clampFrom, monthSpan.clampTo, getAccessToken]);
+
+    useEffect(() => {
+        loadMonthPeriods();
+    }, [loadMonthPeriods]);
 
     /** 👀 actions of the whole period */
     const [saving, setSaving] = useState(false);
@@ -226,9 +236,9 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         try {
             setSaving(true);
             const token = await getAccessToken();
-            const payload: EntriesByDate = {};
+            const entries: EntriesByDate = {};
             for (const iso of daysISO) {
-                payload[iso] = (draftEntriesByDate[iso] ?? []).map((r) => ({
+                entries[iso] = (draftEntriesByDate[iso] ?? []).map((r) => ({
                     type: r.type,
                     hours: Number(r.hours || 0),
                     projectId: r.projectId ?? null,
@@ -241,12 +251,12 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
                     "Content-Type": "application/json",
                     ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
-                body: JSON.stringify({ payload }),
+                body: JSON.stringify({ entries }),
             });
             const json = await r.json();
             if (!r.ok) throw new Error(json?.error || "Save failed");
-            setEntriesByDate(() => payload);
-            setDraftEntriesByDate(payload);
+            setEntriesByDate(() => entries);
+            setDraftEntriesByDate(entries);
             await loadMonthPeriods();
         } finally {
             setSaving(false);
@@ -258,10 +268,11 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         try {
             setClosing(true);
             const token = await getAccessToken();
+            const weekKey = periodWeekKey ?? isoWeekKeyFromMonday(fromDateISO);
             const r = await fetch("/api/periods", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                body: JSON.stringify({ action: isClosed ? "reopen" : "close", fromDateISO }),
+                body: JSON.stringify({ action: isClosed ? "reopen" : "close", period: { weekKey, weekStartDate: fromDateISO } }),
             });
             const data = await r.json();
             if (!r.ok) throw new Error(data?.error || "Action failed");
@@ -270,7 +281,7 @@ export function PeriodDataProvider({ children, employee }: { children: React.Rea
         } finally {
             setClosing(false);
         }
-    }, [getAccessToken, isClosed, fromDateISO, loadMonthPeriods]);
+    }, [getAccessToken, isClosed, fromDateISO, loadMonthPeriods, periodWeekKey]);
 
     /** 👀 interactions */
     const [aiCmd, setAiCmd] = useState("");

@@ -8,10 +8,17 @@ import FloatingToolbar from "../components/ButtonsToolbar";
 import { useAuth, useEmployee, usePeriodDataContext } from "../hooks";
 
 export function Dashboard() {
+    return (
+        <EmployeeProvider>
+            <DashboardWithEmployee />
+        </EmployeeProvider>
+    );
+}
+
+function DashboardWithEmployee() {
     const { signOut } = useAuth();
     const { status, employee, refetch } = useEmployee();
 
-    // Auth/employee states
     if (status === "idle" || status === "loading") {
         return (
             <div className="w-full min-h-full bg-paper flex flex-col px-16 py-8">
@@ -19,6 +26,7 @@ export function Dashboard() {
             </div>
         );
     }
+
     if (status === "error") {
         return (
             <div>
@@ -29,6 +37,7 @@ export function Dashboard() {
             </div>
         );
     }
+
     if (status === "missing") {
         return (
             <div>
@@ -41,13 +50,14 @@ export function Dashboard() {
         );
     }
 
-    // We have a logged-in employee → provide week data with their date bounds.
+    if (!employee) {
+        return null;
+    }
+
     return (
-        <EmployeeProvider>
-            <PeriodDataProvider employee={employee!}>
-                <DashboardBody onSignOut={signOut} employeeName={employee?.name || ""} />
-            </PeriodDataProvider>
-        </EmployeeProvider>
+        <PeriodDataProvider employee={employee}>
+            <DashboardBody onSignOut={signOut} employeeName={employee.name || ""} />
+        </PeriodDataProvider>
     );
 }
 
