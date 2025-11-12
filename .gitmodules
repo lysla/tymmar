@@ -1,3 +1,0 @@
-[submodule ".aiden"]
-	path = .aiden
-	url = https://github.com/lysla/aiden.git
