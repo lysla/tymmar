@@ -25,6 +25,7 @@ export default defineConfig([
             "react-hooks/exhaustive-deps": "warn",
             "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
             "@typescript-eslint/no-explicit-any": "off", // 👈 disables that rule
+            "no-console": ["warn", { allow: ["error", "warn", "info"] }], // Discourage console usage, prefer logger
         },
     },
 ]);

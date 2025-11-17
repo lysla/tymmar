@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Setting } from "../../types";
+import { logger } from "../../helpers/logger";
 
 export type FormSettingValues = Partial<Setting>;
 
@@ -67,7 +68,7 @@ export function AdminFormSetting({
             setStatus(mode === "create" ? "Setting created." : "Changes saved.");
         } catch (err) {
             setStatus(`! ${err instanceof Error ? err.message : "unknown"}`);
-            console.error(err);
+            logger.error(err);
         } finally {
             setLoading(false);
         }

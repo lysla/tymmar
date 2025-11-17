@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../supabase";
 import { Link } from "react-router";
 import type { Employee } from "../../types";
+import { logger } from "../../helpers/logger";
 
 export function AdminDashboard() {
     const [list, setList] = useState<Employee[]>([]);
@@ -80,7 +81,7 @@ export function AdminDashboard() {
             setList((prev) => prev.filter((row) => !selected.has(row.id)));
             setSelected(new Set());
         } catch (e) {
-            console.error(e);
+            logger.error(e);
             alert(e instanceof Error ? e.message : "Delete failed");
         } finally {
             setDeleting(false);

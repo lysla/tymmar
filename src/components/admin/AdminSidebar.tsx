@@ -1,12 +1,13 @@
 import { Link, useLocation, matchPath } from "react-router";
 import { supabase } from "../../supabase";
+import { logger } from "../../helpers/logger";
 
 export function AdminSidebar() {
     const loc = useLocation();
 
     async function handleSignOut() {
         const { error } = await supabase.auth.signOut();
-        if (error) console.error("Error signing out:", error.message);
+        if (error) logger.error("Error signing out:", error.message);
     }
 
     // Helper to check if current location matches ANY of the given patterns

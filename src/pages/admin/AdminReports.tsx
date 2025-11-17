@@ -1,6 +1,7 @@
 // src/AdminReports.tsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabase";
+import { logger } from "../../helpers/logger";
 
 type ByDatesRow = {
     employeeId: number;
@@ -118,7 +119,7 @@ export function AdminReports() {
                 }));
                 if (active) setEmployees(list);
             } catch (e) {
-                console.error(e);
+                logger.error(e);
             }
         })();
         return () => {

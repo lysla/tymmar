@@ -101,8 +101,7 @@ export default function WeekGrid() {
                                             </button>
                                         </div>
 
-                                        {/** 👀 optional notes later */}
-                                        {/* <input className="input input--alt mt-2" placeholder="Note (optional)" /> */}
+                                        {/** 👀 TODO: Add optional notes field for entries */}
                                     </div>
                                 ))}
                             </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Employee } from "../../types";
+import { logger } from "../../helpers/logger";
 
 export type FormEmployeeValues = Partial<Employee>;
 
@@ -57,7 +58,7 @@ export function AdminFormEmployee({
             setStatus(mode === "create" ? "User created." : "Changes saved.");
         } catch (err) {
             setStatus(`! ${err instanceof Error ? err.message : "unknown"}`);
-            console.error(err);
+            logger.error(err);
         } finally {
             setLoading(false);
         }

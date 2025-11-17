@@ -22,14 +22,14 @@ export default function AIInput() {
                     value={aiCmd}
                     onChange={(e) => setAiCmd(e.target.value)}
                     onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey && !aiBusy && !closed) {
+                        if (e.key === "Enter" && !e.shiftKey && !aiBusy && !isClosed) {
                             e.preventDefault();
                             handleAIApply();
                         }
                     }}
-                    disabled={aiBusy || closed}
+                    disabled={aiBusy || isClosed}
                 />
-                <button className="button [ whitespace-nowrap ]" onClick={handleAIApply} disabled={aiBusy || closed}>
+                <button className="button [ whitespace-nowrap ]" onClick={handleAIApply} disabled={aiBusy || isClosed}>
                     {aiBusy ? "Thinking…" : "↲"}
                 </button>
             </div>
